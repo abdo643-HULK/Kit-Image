@@ -1,0 +1,25 @@
+{
+	"name": "adapter",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"type": "module",
+	"scripts": {
+		"build": "rollup -c"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"devDependencies": {
+		"@rollup/plugin-commonjs": "^21.0.1",
+		"@rollup/plugin-json": "^4.1.0",
+		"@rollup/plugin-node-resolve": "^13.1.1",
+		"@sveltejs/kit": "^1.0.0-next.202",
+		"polka": "^0.5.2",
+		"rollup": "^2.61.1",
+		"sirv": "^1.0.19"
+	},
+	"dependencies": {
+		"esbuild": "^0.14.5"
+	}
+}
