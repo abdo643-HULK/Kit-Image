@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		"allowJs": true,
+		"checkJs": false,
+		"noEmit": true,
+		"noImplicitAny": true,
+		"target": "es2020",
+		"module": "ES2020",
+		"moduleResolution": "Node",
+		"strict": true,
+		"allowSyntheticDefaultImports": true,
+		"outDir": "./dist",
+		"sourceMap": true,
+		"paths": {
+			"$dist": ["./src/dist"],
+			"$dist/*": ["./src/dist/*"],
+			"types": ["../types.d.ts"]
+		}
+	},
+	"exclude": ["./dist", "src/dist/**/*", "src/**/*.js"],
+	"include": ["src/**/*.d.ts", "src/**/*.ts"]
+}

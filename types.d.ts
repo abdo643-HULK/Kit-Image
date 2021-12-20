@@ -13,17 +13,9 @@ export type ImageLoaderProps = {
 	quality?: number;
 };
 
-export type OnLoadingComplete = (result: {
-	naturalWidth: number;
-	naturalHeight: number;
-}) => void;
+export type OnLoadingComplete = (result: { naturalWidth: number; naturalHeight: number }) => void;
 
-export type ObjectFitStyle =
-	| 'contain'
-	| 'cover'
-	| 'fill'
-	| 'none'
-	| 'scale-down';
+export type ObjectFitStyle = 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
 
 export type ObjectPositionStyle = CSSStyleDeclaration['objectPosition'];
 export type DecodingAttribute = HTMLImageElement['decoding'];

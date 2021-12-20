@@ -26,7 +26,8 @@
 			"$lib": ["src/lib"],
 			"$lib/*": ["src/lib/*"],
 			"$dist": ["src/lib/dist"],
-			"$dist/*": ["src/lib/dist/*"]
+			"$dist/*": ["src/lib/dist/*"],
+			"types": ["./types.d.ts"]
 		}
 	},
 	"include": [

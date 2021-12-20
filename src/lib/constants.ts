@@ -4,43 +4,27 @@ import {
 	cloudinaryLoader,
 	customLoader,
 	defaultLoader,
-	imgixLoader,
+	imgixLoader
 } from './loaders';
 
-import type {
-	DefaultImageLoaderProps,
-	ImageConfigComplete,
-	LoaderValue,
-} from 'types';
+import type { DefaultImageLoaderProps, LoaderValue } from 'types';
 
 export const EMPTY_DATA_URL =
 	'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
-export const VALID_LAYOUT_VALUES = [
-	'fill',
-	'fixed',
-	'intrinsic',
-	'responsive',
-	undefined,
-] as const;
+export const VALID_LAYOUT_VALUES = ['fill', 'fixed', 'intrinsic', 'responsive', undefined] as const;
 
 export const TAG = 'IMAGE COMPONENT:';
 
-export const VALID_LOADERS = [
-	'default',
-	'imgix',
-	'cloudinary',
-	'akamai',
-	'custom',
-] as const;
+export const VALID_LOADERS = ['default', 'imgix', 'cloudinary', 'akamai', 'custom'] as const;
 
 export const {
 	deviceSizes: configDeviceSizes,
 	imageSizes: configImageSizes,
 	loader: configLoader,
 	path: configPath,
-	domains: configDomains,
-} = import.meta.env.__KIT_IMAGE_OPTS || imageConfigDefault;
+	domains: configDomains
+} = imageConfigDefault; //import.meta.env.__KIT_IMAGE_OPTS ||
 
 // sort smallest to largest
 const allSizes = [...configDeviceSizes, ...configImageSizes];
@@ -55,7 +39,7 @@ export const loaders = new Map<LoaderValue, LoaderFuntion>([
 	['imgix', imgixLoader],
 	['cloudinary', cloudinaryLoader],
 	['akamai', akamaiLoader],
-	['custom', customLoader],
+	['custom', customLoader]
 ]);
 
 // type N = {

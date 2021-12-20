@@ -1,7 +1,7 @@
 import * as path from 'path';
 // import adapter from '@sveltejs/adapter-auto';
 import preprocess from 'svelte-preprocess';
-import adapter from './adapter/index.js';
+import adapter from './adapter/dist/index.js';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -17,11 +17,11 @@ const config = {
 		vite: () => ({
 			resolve: {
 				alias: {
-					$dist: path.resolve('./src/lib/dist'),
-				},
-			},
-		}),
-	},
+					$dist: path.resolve('./src/lib/dist')
+				}
+			}
+		})
+	}
 };
 
 export default config;
