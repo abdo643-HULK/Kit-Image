@@ -1,34 +1,36 @@
 {
-  "name": "kit-image",
-  "version": "1.0.0",
-  "description": "Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte);",
-  "main": "index.js",
-  "dependencies": {
-    "chalk": "^5.0.0",
-    "eslint": "^7.32.0",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-svelte3": "^3.2.1",
-    "eslint-scope": "^5.1.1",
-    "eslint-utils": "^2.1.0",
-    "eslint-visitor-keys": "^2.1.0",
-    "svelte": "^3.44.3",
-    "svelte-check": "^2.2.11",
-    "svelte-preprocess": "^4.10.1",
-    "tslib": "^2.3.1",
-    "typescript": "^4.5.4"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/abdo643-HULK/Kit-Image.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/abdo643-HULK/Kit-Image/issues"
-  },
-  "homepage": "https://github.com/abdo643-HULK/Kit-Image#readme"
+	"name": "kit-image",
+	"version": "1.0.0",
+	"description": "Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte);",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/abdo643-HULK/Kit-Image.git"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/abdo643-HULK/Kit-Image/issues"
+	},
+	"homepage": "https://github.com/abdo643-HULK/Kit-Image#readme",
+	"type": "module",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"devDependencies": {
+		"@sveltejs/kit": "^1.0.0-next.202",
+		"@typescript-eslint/eslint-plugin": "^5.7.0",
+		"@typescript-eslint/parser": "^5.7.0",
+		"chalk": "^5.0.0",
+		"esbuild": "^0.14.5",
+		"eslint": "^7.32.0",
+		"eslint-config-prettier": "^8.3.0",
+		"eslint-scope": "^5.1.1",
+		"eslint-utils": "^2.1.0",
+		"eslint-visitor-keys": "^2.1.0",
+		"svelte": "^3.44.3",
+		"tslib": "^2.3.1",
+		"typescript": "^4.5.4"
+	}
 }

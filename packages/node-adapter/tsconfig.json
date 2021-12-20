@@ -9,7 +9,7 @@
 		"moduleResolution": "Node",
 		"strict": true,
 		"allowSyntheticDefaultImports": true,
-		"outDir": "./dist",
+		"outDir": "./build",
 		"sourceMap": true,
 		"paths": {
 			"$dist": ["./src/dist"],
@@ -17,6 +17,6 @@
 			"types": ["../../types.d.ts"]
 		}
 	},
-	"exclude": ["./dist", "src/dist/**/*", "src/**/*.js"],
+	"exclude": ["./build", "src/dist/**/*", "src/**/*.js"],
 	"include": ["src/**/*.d.ts", "src/**/*.ts"]
 }

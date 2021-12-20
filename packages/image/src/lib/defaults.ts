@@ -1,4 +1,4 @@
-import type { ImageConfigComplete } from '../../types';
+import type { ImageConfigComplete } from 'types';
 
 export const imageConfigDefault: ImageConfigComplete = {
 	deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],

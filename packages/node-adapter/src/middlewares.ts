@@ -16,30 +16,32 @@ const noop_handler: Middleware = (_req, _res, next) => next();
 
 const paths = {
 	assets: join(__dirname, '/assets'),
-	prerendered: join(__dirname, '/prerendered')
+	prerendered: join(__dirname, '/prerendered'),
 };
+
+declare var APP_DIR: string;
 
 export const prerenderedMiddleware = fs.existsSync(paths.prerendered)
 	? sirv(paths.prerendered, {
 			etag: true,
 			maxAge: 0,
 			gzip: true,
-			brotli: true
+			brotli: true,
 	  })
 	: noop_handler;
 
 export const assetsMiddleware = fs.existsSync(paths.assets)
 	? sirv(paths.assets, {
 			setHeaders: (res, pathname) => {
-				// @ts-expect-error - dynamically replaced with define
-				console.log(APP_DIR);
-				// @ts-expect-error - dynamically replaced with define
-				if (pathname.startsWith(/* eslint-disable-line no-undef */ APP_DIR)) {
-					res.setHeader('cache-control', 'public, max-age=31536000, immutable');
+				if (pathname.startsWith(APP_DIR)) {
+					res.setHeader(
+						'cache-control',
+						'public, max-age=31536000, immutable'
+					);
 				}
 			},
 			gzip: true,
-			brotli: true
+			brotli: true,
 	  })
 	: noop_handler;
 

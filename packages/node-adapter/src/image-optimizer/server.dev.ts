@@ -1,33 +1,24 @@
-import { default as chalk } from 'chalk';
+import chalk from 'chalk';
 import imageSizeOf from 'image-size';
+import Stream from 'stream';
 
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { mediaType } from '@hapi/accept';
-import { Readable, Writable } from 'stream';
 import { parse } from 'url';
 
 import { createReadStream, promises } from 'fs';
+import { getOrientation, Orientation } from 'get-orientation';
 
 import isAnimated from '../is-animated';
 import contentDisposition from '../content-disposition';
 
 import { fileExists } from './file-exists';
 import { sendEtagResponse } from './send-payload';
-import { imageConfigDefault } from '../../../image/src/lib/defaults';
-import { getContentType, getExtension } from './serve-static';
-import {
-	ANIMATABLE_TYPES,
-	AVIF,
-	BLUR_IMG_SIZE,
-	CACHE_VERSION,
-	detectContentType,
-	inflightRequests,
-	JPEG,
-	PNG,
-	VECTOR_TYPES,
-	WEBP
-} from './helper';
+import { imageConfigDefault } from '../../../src/lib/defaults';
+import { getContentType, getExtension } from './helper';
+
+// import { processBuffer, decodeBuffer, Operation } from '../squoosh/main';
 
 import type { Socket } from 'net';
 import type { Request } from 'polka';
@@ -37,7 +28,27 @@ import type { ServerResponse, IncomingHttpHeaders } from 'http';
 // import type Server from './base-server';
 import type { ImageConfig, ImageExtension } from 'types';
 
-interface MockRequest extends Readable {
+type ContentType =
+	| 'image/avif'
+	| 'image/webp'
+	| 'image/png'
+	| 'image/jpeg'
+	| 'image/gif'
+	| 'image/svg+xml';
+
+const AVIF = 'image/avif';
+const WEBP = 'image/webp';
+const PNG = 'image/png';
+const JPEG = 'image/jpeg';
+const GIF = 'image/gif';
+const SVG = 'image/svg+xml';
+const CACHE_VERSION = 3;
+const ANIMATABLE_TYPES = [WEBP, PNG, GIF];
+const VECTOR_TYPES = [SVG];
+const BLUR_IMG_SIZE = 8; // should match `next-image-loader`
+const inflightRequests = new Map<string, Promise<undefined>>();
+
+interface MockRequest extends Stream.Readable {
 	headers: IncomingHttpHeaders;
 	method?: string;
 	url: string;
@@ -63,11 +74,13 @@ type sharpFunction = {
 	(options?: SharpOptions): Sharp;
 };
 
-let sharp: sharpFunction;
+let sharp: sharpFunction | undefined;
 
 try {
 	(async () => {
-		sharp = await import((import.meta.env.KIT_IMAGE_SHARP_PATH as string) || 'sharp');
+		sharp = await import(
+			(import.meta.env.KIT_IMAGE_SHARP_PATH as string) || 'sharp'
+		);
 	})();
 } catch (e) {
 	// Sharp not present on the server, Squoosh fallback will be used
@@ -92,7 +105,7 @@ export async function imageOptimizer(
 		domains = [],
 		loader,
 		minimumCacheTTL = 60,
-		formats = ['image/webp']
+		formats = ['image/webp'],
 	} = imageData;
 
 	if (loader !== 'default') {
@@ -211,13 +224,17 @@ export async function imageOptimizer(
 	}
 
 	let dedupeResolver: (val?: PromiseLike<undefined>) => void;
-	inflightRequests.set(hash, new Promise((resolve) => (dedupeResolver = resolve)));
+	inflightRequests.set(
+		hash,
+		new Promise((resolve) => (dedupeResolver = resolve))
+	);
 
 	try {
 		if (await fileExists(hashDir, 'directory')) {
 			const files = await promises.readdir(hashDir);
 			for (const file of files) {
-				const [maxAgeStr, expireAtSt, etag, extension] = file.split('.');
+				const [maxAgeStr, expireAtSt, etag, extension] =
+					file.split('.');
 				const maxAge = Number(maxAgeStr);
 				const expireAt = Number(expireAtSt);
 				const contentType = getContentType(extension);
@@ -252,28 +269,36 @@ export async function imageOptimizer(
 
 			if (!upstreamRes.ok) {
 				res.statusCode = upstreamRes.status;
-				res.end('"url" parameter is valid but upstream response is invalid');
+				res.end(
+					'"url" parameter is valid but upstream response is invalid'
+				);
 				return;
 			}
 
 			res.statusCode = upstreamRes.status;
 			upstreamBuffer = Buffer.from(await upstreamRes.arrayBuffer());
 			upstreamType =
-				detectContentType(upstreamBuffer) || upstreamRes.headers.get('Content-Type');
+				detectContentType(upstreamBuffer) ||
+				upstreamRes.headers.get('Content-Type');
 			maxAge = getMaxAge(upstreamRes.headers.get('Cache-Control'));
 		} else {
 			try {
 				const resBuffers: Buffer[] = [];
-				const mockRes: any = new Writable();
+				const mockRes: any = new Stream.Writable();
 
-				const isStreamFinished = new Promise(function (resolve, reject) {
+				const isStreamFinished = new Promise(function (
+					resolve,
+					reject
+				) {
 					mockRes.on('finish', () => resolve(true));
 					mockRes.on('end', () => resolve(true));
 					mockRes.on('error', () => reject());
 				});
 
 				mockRes.write = (chunk: Buffer | string) => {
-					resBuffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+					resBuffers.push(
+						Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+					);
 				};
 				mockRes._write = (chunk: Buffer | string) => {
 					mockRes.write(chunk);
@@ -283,7 +308,8 @@ export async function imageOptimizer(
 
 				mockRes.writeHead = (_status: any, _headers: any) =>
 					Object.assign(mockHeaders, _headers);
-				mockRes.getHeader = (name: string) => mockHeaders[name.toLowerCase()];
+				mockRes.getHeader = (name: string) =>
+					mockHeaders[name.toLowerCase()];
 				mockRes.getHeaders = () => mockHeaders;
 				mockRes.getHeaderNames = () => Object.keys(mockHeaders);
 				mockRes.setHeader = (name: string, value: string | string[]) =>
@@ -296,7 +322,7 @@ export async function imageOptimizer(
 				mockRes.finished = false;
 				mockRes.statusCode = 200;
 
-				const mockReq = new Readable() as MockRequest;
+				const mockReq = new Stream.Readable() as MockRequest;
 
 				mockReq._read = () => {
 					mockReq.emit('end');
@@ -319,11 +345,14 @@ export async function imageOptimizer(
 
 				upstreamBuffer = Buffer.concat(resBuffers);
 				upstreamType =
-					detectContentType(upstreamBuffer) || mockRes.getHeader('Content-Type');
+					detectContentType(upstreamBuffer) ||
+					mockRes.getHeader('Content-Type');
 				maxAge = getMaxAge(mockRes.getHeader('Cache-Control'));
 			} catch (err) {
 				res.statusCode = 500;
-				res.end('"url" parameter is valid but upstream response is invalid');
+				res.end(
+					'"url" parameter is valid but upstream response is invalid'
+				);
 				return;
 			}
 		}
@@ -332,10 +361,27 @@ export async function imageOptimizer(
 
 		if (upstreamType) {
 			const vector = VECTOR_TYPES.includes(upstreamType);
-			const animate = ANIMATABLE_TYPES.includes(upstreamType) && isAnimated(upstreamBuffer);
+			const animate =
+				ANIMATABLE_TYPES.includes(upstreamType) &&
+				isAnimated(upstreamBuffer);
 			if (vector || animate) {
-				await writeToCacheDir(hashDir, upstreamType, maxAge, expireAt, upstreamBuffer);
-				sendResponse(req, res, url, maxAge, upstreamType, upstreamBuffer, isStatic, isDev);
+				await writeToCacheDir(
+					hashDir,
+					upstreamType,
+					maxAge,
+					expireAt,
+					upstreamBuffer
+				);
+				sendResponse(
+					req,
+					res,
+					url,
+					maxAge,
+					upstreamType,
+					upstreamBuffer,
+					isStatic,
+					isDev
+				);
 				return;
 			}
 
@@ -350,7 +396,10 @@ export async function imageOptimizer(
 
 		if (mimeType) {
 			contentType = mimeType;
-		} else if (upstreamType?.startsWith('image/') && getExtension(upstreamType)) {
+		} else if (
+			upstreamType?.startsWith('image/') &&
+			getExtension(upstreamType)
+		) {
 			contentType = upstreamType;
 		} else {
 			contentType = JPEG;
@@ -358,50 +407,132 @@ export async function imageOptimizer(
 
 		try {
 			let optimizedBuffer: Buffer | undefined;
-			// Begin sharp transformation logic
-			const transformer = sharp(upstreamBuffer);
+			if (sharp) {
+				// Begin sharp transformation logic
+				const transformer = sharp(upstreamBuffer);
 
-			transformer.rotate();
+				transformer.rotate();
 
-			const { width: metaWidth } = await transformer.metadata();
+				const { width: metaWidth } = await transformer.metadata();
 
-			if (metaWidth && metaWidth > width) {
-				transformer.resize(width);
-			}
-
-			if (contentType === AVIF) {
-				if (transformer.avif) {
-					const avifQuality = quality - 15;
-					transformer.avif({
-						quality: Math.max(avifQuality, 0),
-						chromaSubsampling: '4:2:0' // same as webp
-					});
-				} else {
-					console.warn(
-						chalk.yellow.bold('Warning: ') +
-							`Your installed version of the 'sharp' package does not support AVIF images. Run 'yarn add sharp@latest' to upgrade to the latest version.\n` +
-							'Read more: https://nextjs.org/docs/messages/sharp-version-avif'
-					);
-					transformer.webp({ quality });
+				if (metaWidth && metaWidth > width) {
+					transformer.resize(width);
 				}
-			} else if (contentType === WEBP) {
-				transformer.webp({ quality });
-			} else if (contentType === PNG) {
-				transformer.png({ quality });
-			} else if (contentType === JPEG) {
-				transformer.jpeg({ quality });
+
+				if (contentType === AVIF) {
+					if (transformer.avif) {
+						const avifQuality = quality - 15;
+						transformer.avif({
+							quality: Math.max(avifQuality, 0),
+							chromaSubsampling: '4:2:0', // same as webp
+						});
+					} else {
+						console.warn(
+							chalk.yellow.bold('Warning: ') +
+								`Your installed version of the 'sharp' package does not support AVIF images. Run 'yarn add sharp@latest' to upgrade to the latest version.\n` +
+								'Read more: https://nextjs.org/docs/messages/sharp-version-avif'
+						);
+						transformer.webp({ quality });
+					}
+				} else if (contentType === WEBP) {
+					transformer.webp({ quality });
+				} else if (contentType === PNG) {
+					transformer.png({ quality });
+				} else if (contentType === JPEG) {
+					transformer.jpeg({ quality });
+				}
+
+				optimizedBuffer = await transformer.toBuffer();
+				// End sharp transformation logic
+			} else {
+				// // Show sharp warning in production once
+				// if (showSharpMissingWarning) {
+				// 	console.warn(
+				// 		chalk.yellow.bold('Warning: ') +
+				// 			`For production Image Optimization with Next.js, the optional 'sharp' package is strongly recommended. Run 'yarn add sharp', and Next.js will use it automatically for Image Optimization.\n` +
+				// 			'Read more: https://nextjs.org/docs/messages/sharp-missing-in-production'
+				// 	);
+				// 	showSharpMissingWarning = false;
+				// }
+				// // Begin Squoosh transformation logic
+				// const orientation = await getOrientation(upstreamBuffer);
+				// const operations: Operation[] = [];
+				// if (orientation === Orientation.RIGHT_TOP) {
+				// 	operations.push({ type: 'rotate', numRotations: 1 });
+				// } else if (orientation === Orientation.BOTTOM_RIGHT) {
+				// 	operations.push({ type: 'rotate', numRotations: 2 });
+				// } else if (orientation === Orientation.LEFT_BOTTOM) {
+				// 	operations.push({ type: 'rotate', numRotations: 3 });
+				// } else {
+				// 	// TODO: support more orientations
+				// 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				// 	// const _: never = orientation
+				// }
+				// operations.push({ type: 'resize', width });
+				// if (contentType === AVIF) {
+				// 	optimizedBuffer = await processBuffer(
+				// 		upstreamBuffer,
+				// 		operations,
+				// 		'avif',
+				// 		quality
+				// 	);
+				// } else if (contentType === WEBP) {
+				// 	optimizedBuffer = await processBuffer(
+				// 		upstreamBuffer,
+				// 		operations,
+				// 		'webp',
+				// 		quality
+				// 	);
+				// } else if (contentType === PNG) {
+				// 	optimizedBuffer = await processBuffer(
+				// 		upstreamBuffer,
+				// 		operations,
+				// 		'png',
+				// 		quality
+				// 	);
+				// } else if (contentType === JPEG) {
+				// 	optimizedBuffer = await processBuffer(
+				// 		upstreamBuffer,
+				// 		operations,
+				// 		'jpeg',
+				// 		quality
+				// 	);
+				// }
+				// End Squoosh transformation logic
 			}
 
-			optimizedBuffer = await transformer.toBuffer();
-			// End sharp transformation logic
 			if (optimizedBuffer) {
-				await writeToCacheDir(hashDir, contentType, maxAge, expireAt, optimizedBuffer);
-				sendResponse(req, res, url, maxAge, contentType, optimizedBuffer, isStatic, isDev);
+				await writeToCacheDir(
+					hashDir,
+					contentType,
+					maxAge,
+					expireAt,
+					optimizedBuffer
+				);
+				sendResponse(
+					req,
+					res,
+					url,
+					maxAge,
+					contentType,
+					optimizedBuffer,
+					isStatic,
+					isDev
+				);
 			} else {
 				throw new Error('Unable to optimize buffer');
 			}
 		} catch (error) {
-			sendResponse(req, res, url, maxAge, upstreamType, upstreamBuffer, isStatic, isDev);
+			sendResponse(
+				req,
+				res,
+				url,
+				maxAge,
+				upstreamType,
+				upstreamBuffer,
+				isStatic,
+				isDev
+			);
 		}
 
 		return;
@@ -428,7 +559,10 @@ async function writeToCacheDir(
 	await promises.writeFile(filename, buffer);
 }
 
-function getFileNameWithExtension(url: string, contentType: string | null): string | void {
+function getFileNameWithExtension(
+	url: string,
+	contentType: string | null
+): string | void {
 	const [urlWithoutQueryParams] = url.split('?');
 	const fileNameWithExtension = urlWithoutQueryParams.split('/').pop();
 
@@ -471,7 +605,10 @@ function setResponseHeaders(
 
 	const fileName = getFileNameWithExtension(url, contentType);
 	if (fileName) {
-		res.setHeader('Content-Disposition', contentDisposition(fileName, { type: 'inline' }));
+		res.setHeader(
+			'Content-Disposition',
+			contentDisposition(fileName, { type: 'inline' })
+		);
 	}
 
 	res.setHeader('Content-Security-Policy', `script-src 'none'; sandbox;`);
@@ -490,7 +627,16 @@ function sendResponse(
 	isDev: boolean
 ) {
 	const etag = getHash([buffer]);
-	const result = setResponseHeaders(req, res, url, etag, maxAge, contentType, isStatic, isDev);
+	const result = setResponseHeaders(
+		req,
+		res,
+		url,
+		etag,
+		maxAge,
+		contentType,
+		isStatic,
+		isDev
+	);
 	if (!result.finished) {
 		res.end(buffer);
 	}
@@ -529,6 +675,46 @@ function parseCacheControl(str: string | null): Map<string, string> {
 	return map;
 }
 
+/**
+ * Inspects the first few bytes of a buffer to determine if
+ * it matches the "magic number" of known file signatures.
+ * https://en.wikipedia.org/wiki/List_of_file_signatures
+ */
+export function detectContentType(buffer: Buffer): ContentType | null {
+	if ([0xff, 0xd8, 0xff].every((b, i) => buffer[i] === b)) {
+		return JPEG;
+	}
+	if (
+		[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every(
+			(b, i) => buffer[i] === b
+		)
+	) {
+		return PNG;
+	}
+	if ([0x47, 0x49, 0x46, 0x38].every((b, i) => buffer[i] === b)) {
+		return GIF;
+	}
+	if (
+		[0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50].every(
+			(b, i) => !b || buffer[i] === b
+		)
+	) {
+		return WEBP;
+	}
+	if ([0x3c, 0x3f, 0x78, 0x6d, 0x6c].every((b, i) => buffer[i] === b)) {
+		return SVG;
+	}
+	if (
+		[0, 0, 0, 0, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66].every(
+			(b, i) => !b || buffer[i] === b
+		)
+	) {
+		return AVIF;
+	}
+
+	return null;
+}
+
 export function getMaxAge(str: string | null): number {
 	const map = parseCacheControl(str);
 	if (map) {
@@ -555,9 +741,11 @@ const extensions = {
 		);
 		transformer.webp({ quality });
 	},
-	webp: (transformer: Sharp, quality: number) => transformer.webp({ quality }),
-	jpeg: (transformer: Sharp, quality: number) => transformer.jpeg({ quality }),
-	png: (transformer: Sharp, quality: number) => transformer.png({ quality })
+	webp: (transformer: Sharp, quality: number) =>
+		transformer.webp({ quality }),
+	jpeg: (transformer: Sharp, quality: number) =>
+		transformer.jpeg({ quality }),
+	png: (transformer: Sharp, quality: number) => transformer.png({ quality }),
 };
 
 export async function resizeImage(
@@ -567,20 +755,27 @@ export async function resizeImage(
 	// Should match VALID_BLUR_EXT
 	extension: ImageExtension,
 	quality: number
-): Promise<Buffer> {
-	const transformer = sharp(content);
+): Promise<Buffer | undefined> {
+	if (sharp) {
+		const transformer = sharp(content);
 
-	extensions[extension](transformer, quality);
+		extensions[extension](transformer, quality);
 
-	if (dimension === 'width') {
-		transformer.resize(size);
-	} else {
-		transformer.resize(null, size);
+		if (dimension === 'width') {
+			transformer.resize(size);
+		} else {
+			transformer.resize(null, size);
+		}
+
+		const buf = await transformer.toBuffer();
+
+		return buf;
 	}
 
-	const buf = await transformer.toBuffer();
-
-	return buf;
+	// const resizeOperationOpts: Operation =
+	// 	dimension === 'width' ? { type: 'resize', width: size } : { type: 'resize', height: size };
+	// const buf = await processBuffer(content, [resizeOperationOpts], extension, quality);
+	// return buf;
 }
 
 export async function getImageSize(
@@ -594,9 +789,14 @@ export async function getImageSize(
 	// TODO: upgrade "image-size" package to support AVIF
 	// See https://github.com/image-size/image-size/issues/348
 	if (extension === 'avif') {
-		const transformer = sharp(buffer);
-		const { width, height } = await transformer.metadata();
-		return { width, height };
+		if (sharp) {
+			const transformer = sharp(buffer);
+			const { width, height } = await transformer.metadata();
+			return { width, height };
+		}
+
+		// const { width, height } = await decodeBuffer(buffer);
+		// return { width, height };
 	}
 
 	const { width, height } = imageSizeOf(buffer);

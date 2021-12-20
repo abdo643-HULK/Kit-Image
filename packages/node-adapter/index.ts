@@ -12,7 +12,7 @@ import {
 	existsSync,
 	readFileSync,
 	statSync,
-	writeFileSync
+	writeFileSync,
 } from 'fs';
 
 import type { Adapter } from '@sveltejs/kit';
@@ -38,8 +38,12 @@ export default function ({
 	entryPoint = '.svelte-kit/node/index.js',
 	out = 'build',
 	precompress,
-	env: { path: path_env = 'SOCKET_PATH', host: host_env = 'HOST', port: port_env = 'PORT' } = {},
-	esbuild: esbuild_config
+	env: {
+		path: path_env = 'SOCKET_PATH',
+		host: host_env = 'HOST',
+		port: port_env = 'PORT',
+	} = {},
+	esbuild: esbuild_config,
 }: Config = {}): Adapter {
 	return {
 		name: '@sveltejs/adapter-node-kit-image',
@@ -76,15 +80,16 @@ export default function ({
 				outfile: join(out, 'middlewares.js'),
 				bundle: true,
 				external: Object.keys(
-					JSON.parse(readFileSync('package.json', 'utf8')).dependencies || {}
+					JSON.parse(readFileSync('package.json', 'utf8'))
+						.dependencies || {}
 				),
 				format: 'esm',
 				platform: 'node',
 				target: 'node14',
 				inject: [join(files, 'shims.js')],
 				define: {
-					APP_DIR: `"/${config.kit.appDir}/"`
-				}
+					APP_DIR: `"/${config.kit.appDir}/"`,
+				},
 			};
 			const build_options = esbuild_config
 				? await esbuild_config(defaultOptions)
@@ -109,26 +114,31 @@ export default function ({
 							const internal_middlewares_path = resolve(
 								'.svelte-kit/node/middlewares.js'
 							);
-							const build_middlewares_path = resolve(out, 'middlewares.js');
+							const build_middlewares_path = resolve(
+								out,
+								'middlewares.js'
+							);
 							build.onResolve(
 								{ filter: /\/middlewares\.js$/ },
 								({ path, resolveDir }) => {
 									const resolved = resolve(resolveDir, path);
 									if (
-										resolved === internal_middlewares_path ||
+										resolved ===
+											internal_middlewares_path ||
 										resolved === build_middlewares_path
 									) {
 										return {
 											path: './middlewares.js',
-											external: true
+											external: true,
 										};
 									}
 								}
 							);
-						}
-					}
-				]
+						},
+					},
+				],
 			};
+
 			const build_options_ref_server = esbuild_config
 				? await esbuild_config(default_options_ref_server)
 				: default_options_ref_server;
@@ -136,14 +146,14 @@ export default function ({
 
 			utils.log.minor('Prerendering static pages');
 			await utils.prerender({
-				dest: `${out}/prerendered`
+				dest: `${out}/prerendered`,
 			});
 
 			if (precompress && existsSync(`${out}/prerendered`)) {
 				utils.log.minor('Compressing prerendered pages');
 				await compress(`${out}/prerendered`);
 			}
-		}
+		},
 	};
 }
 
@@ -152,11 +162,13 @@ async function compress(directory: string) {
 		cwd: directory,
 		dot: true,
 		absolute: true,
-		filesOnly: true
+		filesOnly: true,
 	});
 
 	await Promise.all(
-		files.map((file) => Promise.all([compress_file(file, 'gz'), compress_file(file, 'br')]))
+		files.map((file) =>
+			Promise.all([compress_file(file, 'gz'), compress_file(file, 'br')])
+		)
 	);
 }
 
@@ -165,10 +177,13 @@ async function compress_file(file: string, format: 'gz' | 'br' = 'gz') {
 		format === 'br'
 			? zlib.createBrotliCompress({
 					params: {
-						[zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
-						[zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
-						[zlib.constants.BROTLI_PARAM_SIZE_HINT]: statSync(file).size
-					}
+						[zlib.constants.BROTLI_PARAM_MODE]:
+							zlib.constants.BROTLI_MODE_TEXT,
+						[zlib.constants.BROTLI_PARAM_QUALITY]:
+							zlib.constants.BROTLI_MAX_QUALITY,
+						[zlib.constants.BROTLI_PARAM_SIZE_HINT]:
+							statSync(file).size,
+					},
 			  })
 			: zlib.createGzip({ level: zlib.constants.Z_BEST_COMPRESSION });
 

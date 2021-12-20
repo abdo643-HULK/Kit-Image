@@ -1,3 +1,4 @@
+// eslint-disable-file @typescript-eslint/no-var-requires
 import json from '@rollup/plugin-json';
 import commonjs from '@rollup/plugin-commonjs';
 // import typescript from '@rollup/plugin-typescript';
@@ -10,54 +11,29 @@ export default [
 	{
 		input: 'index.ts',
 		output: {
-			dir: 'dist',
+			dir: 'build',
 			format: 'esm',
-			sourcemap: true
+			sourcemap: true,
 		},
 		plugins: [
 			commonjs(),
 			typescript(),
 			json(),
 			alias({
-				entries: [{ find: '$dist', replacement: './src/dist' }]
-			})
-		]
+				entries: [{ find: '$dist', replacement: './src/dist' }],
+			}),
+		],
 		// external: [
 		// 	// eslint-disable-next-line @typescript-eslint/no-var-requires
 		// 	...require('module').builtinModules
 		// ]
 	},
 	{
-		input: 'src/middlewares.ts',
-		output: {
-			file: 'dist/files/middlewares.js',
-			format: 'esm',
-			sourcemap: true
-		},
-		plugins: [
-			nodeResolve(),
-			commonjs(),
-			typescript(),
-			json(),
-			alias({
-				entries: [
-					{ find: '$dist', replacement: './src/dist' },
-					{ find: 'types', replacement: '../types.d.ts' }
-				]
-			})
-		],
-		external: [
-			'../output/server/app.js',
-			// eslint-disable-next-line @typescript-eslint/no-var-requires
-			...require('module').builtinModules
-		]
-	},
-	{
 		input: 'src/index.ts',
 		output: {
-			file: 'dist/files/index.js',
+			file: 'build/files/index.js',
 			format: 'esm',
-			sourcemap: true
+			sourcemap: true,
 		},
 		plugins: [
 			nodeResolve(),
@@ -67,26 +43,50 @@ export default [
 			alias({
 				entries: [
 					{ find: '$dist', replacement: './src/dist' },
-					{ find: 'types', replacement: '../types.d.ts' }
-				]
-			})
+					{ find: 'types', replacement: '../types.d.ts' },
+				],
+			}),
 		],
 		external: [
+			'mime',
+			...require('module').builtinModules,
 			'./env.js',
 			'./middlewares.js',
 			'../output/server/app.js',
-			// eslint-disable-next-line @typescript-eslint/no-var-requires
-			...require('module').builtinModules
-		]
+		],
+	},
+	{
+		input: 'src/middlewares.ts',
+		output: {
+			file: 'build/files/middlewares.js',
+			format: 'esm',
+			sourcemap: true,
+		},
+		plugins: [
+			nodeResolve(),
+			commonjs(),
+			typescript(),
+			json(),
+			alias({
+				entries: [
+					{ find: '$dist', replacement: './src/dist' },
+					{ find: 'types', replacement: '../types.d.ts' },
+				],
+			}),
+		],
+		external: [
+			'../output/server/app.js',
+			...require('module').builtinModules,
+		],
 	},
 	{
 		input: 'src/shims.ts',
 		output: {
-			file: 'dist/files/shims.js',
+			file: 'build/files/shims.js',
 			format: 'esm',
-			sourcemap: true
+			sourcemap: true,
 		},
 		plugins: [typescript()],
-		external: ['module']
-	}
+		external: ['module'],
+	},
 ];
