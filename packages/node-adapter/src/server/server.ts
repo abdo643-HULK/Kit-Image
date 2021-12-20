@@ -14,7 +14,7 @@ import contentDisposition from '../content-disposition';
 
 import { fileExists } from './file-exists';
 import { sendEtagResponse } from './send-payload';
-import { imageConfigDefault } from '../../../src/lib/defaults';
+import { imageConfigDefault } from '../../../image/src/lib/defaults';
 import { getContentType, getExtension } from './serve-static';
 import {
 	ANIMATABLE_TYPES,

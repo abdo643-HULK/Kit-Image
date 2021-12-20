@@ -14,7 +14,7 @@
 		"paths": {
 			"$dist": ["./src/dist"],
 			"$dist/*": ["./src/dist/*"],
-			"types": ["../types.d.ts"]
+			"types": ["../../types.d.ts"]
 		}
 	},
 	"exclude": ["./dist", "src/dist/**/*", "src/**/*.js"],
