@@ -1,4 +1,4 @@
-import type { VALID_LAYOUT_VALUES, VALID_LOADERS } from './src/lib/constants';
+import type { VALID_LAYOUT_VALUES, VALID_LOADERS } from './packages/image/src/lib/constants';
 
 export type LayoutValue = typeof VALID_LAYOUT_VALUES[number];
 export type LoaderValue = typeof VALID_LOADERS[number];
@@ -35,7 +35,7 @@ export type GenImgAttrsData = {
 
 export type GenImgAttrsResult = {
 	src: string;
-	srcSet: string | undefined;
+	srcset: string | undefined;
 	sizes: string | undefined;
 };
 

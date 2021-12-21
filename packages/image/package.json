@@ -1,5 +1,5 @@
 {
-	"name": "image",
+	"name": "@kit-image/image",
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
@@ -12,10 +12,12 @@
 		"lint": "eslint --ignore-path .gitignore ."
 	},
 	"devDependencies": {
+		"@kit-image/adapter-node": "workspace:*",
 		"eslint": "^7.32.0",
 		"eslint-config-prettier": "^8.3.0",
 		"eslint-plugin-svelte3": "^3.2.1",
 		"sass": "^1.45.0",
+		"sharp": "^0.29.3",
 		"svelte": "^3.44.0",
 		"svelte-check": "^2.2.6",
 		"svelte-preprocess": "^4.9.4",

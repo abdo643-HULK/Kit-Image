@@ -1,7 +1,7 @@
 import * as path from 'path';
-// import adapter from '@sveltejs/adapter-auto';
 import preprocess from 'svelte-preprocess';
-import adapter from './adapter/dist/index.js';
+import adapter from '@kit-image/adapter-node';
+// import adapter from '@sveltejs/adapter-auto';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -10,7 +10,11 @@ const config = {
 	preprocess: preprocess(),
 
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({
+			imageConfig: {
+				minimumCacheTTL: 8000
+			}
+		}),
 
 		// hydrate the <div id="svelte"> element in src/app.html
 		target: '#svelte',
@@ -18,6 +22,12 @@ const config = {
 			resolve: {
 				alias: {
 					$dist: path.resolve('./src/lib/dist')
+				}
+			},
+			server: {
+				port: 3001,
+				proxy: {
+					'^/_kit/image.*': 'http://localhost:3000/_kit/image'
 				}
 			}
 		})

@@ -1,23 +1,16 @@
 interface LazyLoadOptions {
 	once?: boolean;
 	observerOptions?: IntersectionObserverInit;
-	onIntersection?: (target: HTMLElement) => {};
+	onIntersection?: (target: HTMLElement) => void;
 }
 
-export default function intersection(
-	node: HTMLElement,
-	options: LazyLoadOptions = {}
-) {
-	const {
-		observerOptions,
-		once = true,
-		onIntersection = () => {},
-	} = options || {};
+export default function intersection(node: HTMLElement, options: LazyLoadOptions = {}) {
+	const { observerOptions, once = true, onIntersection = () => {} } = options || {};
 
 	const observer = new IntersectionObserver(intersactionHandler, {
 		root: observerOptions?.root,
 		rootMargin: observerOptions?.rootMargin || '0px',
-		threshold: observerOptions?.threshold ?? 0.2,
+		threshold: observerOptions?.threshold ?? 0.2
 	});
 
 	observer.observe(node);
@@ -26,7 +19,7 @@ export default function intersection(
 		entries: IntersectionObserverEntry[],
 		observer: IntersectionObserver
 	) {
-		entries.forEach(entry => {
+		entries.forEach((entry) => {
 			if (!entry.isIntersecting) return;
 			onIntersection(entry.target as HTMLElement);
 			once && observer.unobserve(node);
@@ -36,6 +29,6 @@ export default function intersection(
 	return {
 		destroy() {
 			observer.unobserve(node);
-		},
+		}
 	};
 }

@@ -1,4 +1,4 @@
-import { imageConfigDefault } from './defaults';
+import { imageConfigDefault } from '../../../../config/defaults';
 import {
 	akamaiLoader,
 	cloudinaryLoader,
@@ -18,6 +18,8 @@ export const TAG = 'IMAGE COMPONENT:';
 
 export const VALID_LOADERS = ['default', 'imgix', 'cloudinary', 'akamai', 'custom'] as const;
 
+console.log(import.meta.env);
+
 export const {
 	deviceSizes: configDeviceSizes,
 	imageSizes: configImageSizes,
@@ -31,7 +33,6 @@ const allSizes = [...configDeviceSizes, ...configImageSizes];
 configDeviceSizes.sort((a: number, b: number) => a - b);
 allSizes.sort((a, b) => a - b);
 
-// eslint-disable-next-line no-unused-vars
 type LoaderFuntion = (props: DefaultImageLoaderProps) => string;
 
 export const loaders = new Map<LoaderValue, LoaderFuntion>([
@@ -41,35 +42,3 @@ export const loaders = new Map<LoaderValue, LoaderFuntion>([
 	['akamai', akamaiLoader],
 	['custom', customLoader]
 ]);
-
-// type N = {
-// 	[loader in LoaderValue]: LoaderFuntion;
-// };
-
-// export const LOADERS = <N>Object.create(null, {
-// 	custom: {
-// 		value: customLoader,
-// 		writable: false,
-// 		configurable: false,
-// 	},
-// 	default: {
-// 		value: defaultLoader,
-// 		writable: false,
-// 		configurable: false,
-// 	},
-// 	cloudinary: {
-// 		value: cloudinaryLoader,
-// 		writable: false,
-// 		configurable: false,
-// 	},
-// 	akamai: {
-// 		value: akamaiLoader,
-// 		writable: false,
-// 		configurable: false,
-// 	},
-// 	imgix: {
-// 		value: defaultLoader,
-// 		writable: false,
-// 		configurable: false,
-// 	},
-// });

@@ -1,5 +1,6 @@
 {
 	"name": "kit-image",
+	"private": true,
 	"version": "1.0.0",
 	"description": "Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte);",
 	"repository": {
@@ -13,10 +14,16 @@
 		"url": "https://github.com/abdo643-HULK/Kit-Image/issues"
 	},
 	"homepage": "https://github.com/abdo643-HULK/Kit-Image#readme",
+	"workspaces": [
+		"packages/*"
+	],
 	"type": "module",
 	"main": "index.js",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"build": "pnpm build",
+		"check": "pnpm -r check",
+		"lint": "pnpm -r lint",
+		"test": "pnpm -r test --workspace-concurrency=1"
 	},
 	"devDependencies": {
 		"@sveltejs/kit": "^1.0.0-next.202",

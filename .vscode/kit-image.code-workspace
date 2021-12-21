@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"name": "ROOT",
+			"path": "../"
+		},
+		{
+			"name": "Image",
+			"path": "../packages/image"
+		},
+		{
+			"name": "Node Adapter",
+			"path": "../packages/adapter-node"
+		}
+	],
+	"settings": {
+		"files.exclude": {
+			"node_modules/": true
+		}
+	}
+}

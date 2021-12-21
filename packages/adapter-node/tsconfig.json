@@ -1,0 +1,27 @@
+{
+	"compilerOptions": {
+		"target": "es2020",
+		"module": "ES2020",
+		"moduleResolution": "Node",
+		"lib": ["es2020"],
+		"allowJs": true,
+		"checkJs": false,
+		"noEmit": true,
+		"noImplicitAny": true,
+		"strict": true,
+		"esModuleInterop": true,
+		"importsNotUsedAsValues": "error",
+		"forceConsistentCasingInFileNames": true,
+		"allowSyntheticDefaultImports": true,
+		"baseUrl": "./",
+		"outDir": "build",
+		"sourceMap": true,
+		"paths": {
+			"$dist": ["src/image-optimizer/dist"],
+			"$dist/*": ["src/image-optimizer/dist/*"],
+			"types": ["../../types.d.ts"]
+		}
+	},
+	"exclude": ["build", "src/image-optimizer/dist/**/*", "src/**/*.js"],
+	"include": ["index.ts", "src/**/*.d.ts", "src/**/*.ts", "../../config/defaults.ts"]
+}

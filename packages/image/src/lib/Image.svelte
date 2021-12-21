@@ -17,7 +17,7 @@
 		LoadingAttribute,
 		ObjectFitStyle,
 		ObjectPositionStyle,
-		PlaceholderValue,
+		PlaceholderValue
 	} from 'types';
 </script>
 
@@ -49,8 +49,7 @@
 	export let sizes: string | undefined = undefined;
 	export let loader = defaultImageLoader;
 
-	let isLazy =
-		!priority && (loading === 'lazy' || typeof loading === 'undefined');
+	let isLazy = !priority && (loading === 'lazy' || typeof loading === 'undefined');
 
 	if (src.startsWith('data:') || src.startsWith('blob:')) {
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs
@@ -98,13 +97,11 @@
 	if (dev) {
 		if (!src) {
 			throw new Error(
-				`${TAG} "src" property must be defined. Received:  ${JSON.stringify(
-					{
-						width,
-						height,
-						quality,
-					}
-				)}`
+				`${TAG} "src" property must be defined. Received:  ${JSON.stringify({
+					width,
+					height,
+					quality
+				})}`
 			);
 		}
 
@@ -147,10 +144,7 @@
 		}
 
 		if (placeholder === 'blur') {
-			if (
-				layout !== 'fill' &&
-				(widthInt || 0) * (heightInt || 0) < 1600
-			) {
+			if (layout !== 'fill' && (widthInt || 0) * (heightInt || 0) < 1600) {
 				console.warn(
 					`${TAG} Image with src "${src}" is smaller than 40x40. Consider removing the "placeholder='blur'" property to improve performance.`
 				);
@@ -173,16 +167,13 @@
 			const urlStr = loader({
 				src,
 				width: widthInt || 400,
-				quality: qualityInt || 75,
+				quality: qualityInt || 75
 			});
 			let url: URL | undefined;
 			try {
 				url = new URL(urlStr);
 			} catch (err) {}
-			if (
-				urlStr === src ||
-				(url && url.pathname === src && !url.search)
-			) {
+			if (urlStr === src || (url && url.pathname === src && !url.search)) {
 				console.warn(
 					`Image with src "${src}" has a "loader" property that does not implement width. Please implement it or use the "unoptimized" property instead.`
 				);
@@ -211,32 +202,31 @@
 			});
 			perfObserver.observe({
 				type: 'largest-contentful-paint',
-				buffered: true,
+				buffered: true
 			});
 		}
 	}
 
 	let isIntersected = false;
 
-	const isVisible = !isLazy || isIntersected;
-
 	let imgAttributes: GenImgAttrsResult = {
 		src: EMPTY_DATA_URL,
-		srcSet: undefined,
-		sizes: undefined,
+		srcset: undefined,
+		sizes: undefined
 	};
 
-	if (isVisible) {
-		imgAttributes = generateImgAttrs({
-			src,
-			unoptimized,
-			layout,
-			width: widthInt,
-			quality: qualityInt,
-			sizes,
-			loader,
-		});
-	}
+	$: imgAttributes =
+		!isLazy || isIntersected
+			? generateImgAttrs({
+					src,
+					unoptimized,
+					layout,
+					width: widthInt,
+					quality: qualityInt,
+					sizes,
+					loader
+			  })
+			: imgAttributes;
 
 	if (dev && browser) {
 		let fullUrl: URL;
@@ -256,7 +246,7 @@
 	--image-height: ${heightInt};
 	--image-padding-top: ${paddingTop};
 	--image-blur-bg-size: ${objectFit};
-	--image-blur-bg-image: url("${blurDataURL}");
+	--image-blur-bg-image: url("${blurDataURL || ''}");
 	--image-blur-bg-position: ${objectPosition};
 	`;
 
@@ -267,12 +257,12 @@
 		width: widthInt,
 		quality: qualityInt,
 		sizes,
-		loader,
+		loader
 	});
 
 	const linkProps = {
-		imagesrcset: imgAttributes.srcSet,
-		imagesizes: imgAttributes.sizes,
+		imagesrcset: imgAttributes.srcset,
+		imagesizes: imgAttributes.sizes
 	};
 
 	const dispatch = createEventDispatcher();
@@ -288,11 +278,8 @@
 		<link
 			rel="preload"
 			as="image"
-			href={imgAttributes.srcSet ? undefined : imgAttributes.src}
-			data-key={'__kimg-' +
-				imgAttributes.src +
-				imgAttributes.srcSet +
-				imgAttributes.sizes}
+			href={imgAttributes.srcset ? undefined : imgAttributes.src}
+			data-key={'__kimg-' + imgAttributes.src + imgAttributes.srcset + imgAttributes.sizes}
 			{...linkProps}
 		/>
 	{/if}
@@ -339,13 +326,16 @@ class:intrinsic={layout === 'intrinsic'}
 			},
 			errorHandler: (e) => {
 				dispatch('error', e);
-			},
+			}
 		}}
 		use:intersection={{
 			observerOptions: {
-				rootMargin: lazyBoundary,
+				rootMargin: lazyBoundary
 			},
-			onIntersection: () => (isIntersected = true),
+			onIntersection: (_) => {
+				console.log(_);
+				isIntersected = true;
+			}
 		}}
 	/>
 	<noscript>
@@ -362,41 +352,41 @@ class:intrinsic={layout === 'intrinsic'}
 
 <style lang="scss">
 	.img {
-		position: 'absolute';
+		position: absolute;
 		top: 0;
 		left: 0;
 		bottom: 0;
 		right: 0;
 
-		box-sizing: 'border-box';
+		box-sizing: border-box;
 		padding: 0;
-		border: 'none';
-		margin: 'auto';
+		border: none;
+		margin: auto;
 
-		display: 'block';
+		display: block;
 		width: 0;
 		height: 0;
-		min-width: '100%';
-		max-width: '100%';
-		min-height: '100%';
-		max-height: '100%';
+		min-width: 100%;
+		max-width: 100%;
+		min-height: 100%;
+		max-height: 100%;
 
 		object-fit: var(--image-blur-bg-size);
 		object-position: var(--image-blur-bg-position);
 
 		&-blur {
 			filter: blur(20px);
-			background-size: var(--image-blur-bg-size, 'cover');
+			background-size: var(--image-blur-bg-size, cover);
 			background-image: var(--image-blur-bg-image);
-			background-position: var(--image-blur-bg-position, '0% 0%');
+			background-position: var(--image-blur-bg-position, 0% 0%);
 		}
 
 		&-sizer-svg {
-			display: 'block';
-			max-width: '100%';
-			width: 'initial';
-			height: 'initial';
-			background: 'none';
+			display: block;
+			max-width: 100%;
+			width: initial;
+			height: initial;
+			background: none;
 			opacity: 1;
 			border: 0;
 			margin: 0;
@@ -405,10 +395,10 @@ class:intrinsic={layout === 'intrinsic'}
 
 		&-wrapper,
 		&-sizer {
-			display: 'block';
-			width: 'initial';
-			height: 'initial';
-			background: 'none';
+			display: block;
+			width: initial;
+			height: initial;
+			background: none;
 			opacity: 1;
 			border: 0;
 			margin: 0;
@@ -416,7 +406,7 @@ class:intrinsic={layout === 'intrinsic'}
 		}
 
 		&-wrapper {
-			overflow: 'hidden';
+			overflow: hidden;
 
 			&.fill {
 				display: block;
@@ -428,8 +418,8 @@ class:intrinsic={layout === 'intrinsic'}
 			}
 
 			&.responsive {
-				display: 'block';
-				position: 'relative';
+				display: block;
+				position: relative;
 			}
 
 			&.intrinsic {
@@ -439,8 +429,8 @@ class:intrinsic={layout === 'intrinsic'}
 			}
 
 			&.fixed {
-				display: 'inline-block';
-				position: 'relative';
+				display: inline-block;
+				position: relative;
 				width: var(--image-width);
 				height: var(--image-height);
 			}
