@@ -1,4 +1,4 @@
-import { c as create_ssr_component, a as createEventDispatcher, s as spread, b as escape_attribute_value, d as escape_object, f as add_attribute, e as escape, n as null_to_empty, v as validate_component } from "./app-07955c95.js";
+import { c as create_ssr_component, a as createEventDispatcher, s as spread, b as escape_attribute_value, d as escape_object, f as add_attribute, e as escape, n as null_to_empty, v as validate_component } from "./app-2747eac5.js";
 import "@sveltejs/kit/ssr";
 const imageConfigDefault = {
   deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
@@ -73,19 +73,23 @@ function customLoader({ src }) {
 }
 const EMPTY_DATA_URL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 const TAG = "IMAGE COMPONENT:";
-const VALID_LOADERS = ["default", "imgix", "cloudinary", "akamai", "custom"];
-console.log(process.env);
-console.log("__KIT_IMAGE_OPTS" in process.env);
-console.log(process.env.__KIT_IMAGE_OPTS?.minimumCacheTTL);
+const VALID_LOADERS = [
+  "default",
+  "imgix",
+  "cloudinary",
+  "akamai",
+  "custom"
+];
 const {
   deviceSizes: configDeviceSizes,
   imageSizes: configImageSizes,
   loader: configLoader,
   path: configPath,
   domains: configDomains
-} = imageConfigDefault;
-[...configDeviceSizes, ...configImageSizes];
+} = { ...imageConfigDefault, ...{ "minimumCacheTTL": 8e3 } };
+const allSizes = [...configDeviceSizes, ...configImageSizes];
 configDeviceSizes.sort((a, b) => a - b);
+allSizes.sort((a, b) => a - b);
 const loaders = new Map([
   ["default", defaultLoader],
   ["imgix", imgixLoader],
@@ -114,10 +118,7 @@ function generateImgAttrs({
   if (unoptimized) {
     return { src, srcset: void 0, sizes: void 0 };
   }
-  const allSizes = [51];
-  const configDeviceSizes2 = [150];
-  const { widths, kind } = getWidths(allSizes, configDeviceSizes2, width, layout, sizes);
-  console.log(widths);
+  const { widths, kind } = getWidths(width, layout, sizes);
   const last = widths.length - 1;
   return {
     sizes: !sizes && kind === "w" ? "100vw" : sizes,
@@ -128,7 +129,7 @@ function generateImgAttrs({
     src: loader({ src, quality, width: widths[last] })
   };
 }
-function getWidths(allSizes, configDeviceSizes2, width, layout, sizes) {
+function getWidths(width, layout, sizes) {
   if (sizes && (layout === "fill" || layout === "responsive")) {
     const viewportWidthRe = /(^|\s)(1?\d?\d)vw/g;
     const percentSizes = [];
@@ -138,14 +139,14 @@ function getWidths(allSizes, configDeviceSizes2, width, layout, sizes) {
     if (percentSizes.length) {
       const smallestRatio = Math.min(...percentSizes) * 0.01;
       return {
-        widths: allSizes.filter((s) => s >= configDeviceSizes2[0] * smallestRatio),
+        widths: allSizes.filter((s) => s >= configDeviceSizes[0] * smallestRatio),
         kind: "w"
       };
     }
     return { widths: allSizes, kind: "w" };
   }
   if (typeof width !== "number" || layout === "fill" || layout === "responsive") {
-    return { widths: configDeviceSizes2, kind: "w" };
+    return { widths: configDeviceSizes, kind: "w" };
   }
   const widths = [
     ...new Set([width, width * 2].map((w) => allSizes.find((p) => p >= w) || allSizes[allSizes.length - 1]))

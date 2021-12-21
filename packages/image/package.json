@@ -13,6 +13,7 @@
 	},
 	"devDependencies": {
 		"@kit-image/adapter-node": "workspace:*",
+		"@sveltejs/adapter-cloudflare-workers": "^1.0.0-next.26",
 		"eslint": "^7.32.0",
 		"eslint-config-prettier": "^8.3.0",
 		"eslint-plugin-svelte3": "^3.2.1",

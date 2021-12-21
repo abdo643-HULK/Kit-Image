@@ -230,9 +230,9 @@ function init(settings = default_settings) {
     amp: false,
     dev: false,
     entry: {
-      file: assets + "/_app/start-a7483645.js",
+      file: assets + "/_app/start-ff442453.js",
       css: [assets + "/_app/assets/start-61d1577b.css"],
-      js: [assets + "/_app/start-a7483645.js", assets + "/_app/chunks/vendor-0aeaafb9.js"]
+      js: [assets + "/_app/start-ff442453.js", assets + "/_app/chunks/vendor-0aeaafb9.js"]
     },
     fetched: void 0,
     floc: false,
@@ -281,11 +281,11 @@ const get_hooks = (hooks) => ({
   externalFetch: hooks.externalFetch || fetch
 });
 const module_lookup = {
-  ".svelte-kit/build/components/layout.svelte": () => import("./layout-db6581a2.js"),
-  ".svelte-kit/build/components/error.svelte": () => import("./error-97dca743.js"),
-  "src/routes/index.svelte": () => import("./index-b6420340.js")
+  ".svelte-kit/build/components/layout.svelte": () => import("./layout-bf013c2f.js"),
+  ".svelte-kit/build/components/error.svelte": () => import("./error-338d4920.js"),
+  "src/routes/index.svelte": () => import("./index-fcf6c3ae.js")
 };
-const metadata_lookup = { ".svelte-kit/build/components/layout.svelte": { "entry": "layout.svelte-2ebadf0f.js", "css": [], "js": ["layout.svelte-2ebadf0f.js", "chunks/vendor-0aeaafb9.js"], "styles": [] }, ".svelte-kit/build/components/error.svelte": { "entry": "error.svelte-71462a7e.js", "css": [], "js": ["error.svelte-71462a7e.js", "chunks/vendor-0aeaafb9.js"], "styles": [] }, "src/routes/index.svelte": { "entry": "pages/index.svelte-9fbd68cd.js", "css": ["assets/pages/index.svelte-f3e9fa38.css"], "js": ["pages/index.svelte-9fbd68cd.js", "chunks/vendor-0aeaafb9.js"], "styles": [] } };
+const metadata_lookup = { ".svelte-kit/build/components/layout.svelte": { "entry": "layout.svelte-2ebadf0f.js", "css": [], "js": ["layout.svelte-2ebadf0f.js", "chunks/vendor-0aeaafb9.js"], "styles": [] }, ".svelte-kit/build/components/error.svelte": { "entry": "error.svelte-71462a7e.js", "css": [], "js": ["error.svelte-71462a7e.js", "chunks/vendor-0aeaafb9.js"], "styles": [] }, "src/routes/index.svelte": { "entry": "pages/index.svelte-e735f21b.js", "css": ["assets/pages/index.svelte-f3e9fa38.css"], "js": ["pages/index.svelte-e735f21b.js", "chunks/vendor-0aeaafb9.js"], "styles": [] } };
 async function load_component(file) {
   const { entry, css: css2, js, styles } = metadata_lookup[file];
   return {

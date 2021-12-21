@@ -1,3 +1,5 @@
+import { getType as lookup, getExtension as extension } from 'mime';
+
 export const AVIF = 'image/avif';
 export const WEBP = 'image/webp';
 export const PNG = 'image/png';
@@ -62,9 +64,7 @@ export function detectContentType(buffer: Buffer): ContentType | null {
 	return null;
 }
 
-import { lookup, extension } from 'mime';
-
-export function getExtension(contentType: string): string | undefined {
+export function getExtension(contentType: string): string | null {
 	// if (contentType === 'image/avif') {
 	// 	// TODO: update "mime" package
 	// 	return 'avif';
@@ -73,7 +73,7 @@ export function getExtension(contentType: string): string | undefined {
 	return extension(contentType);
 }
 
-export function getContentType(extWithoutDot: string): string {
+export function getContentType(extWithoutDot: string): string | null {
 	// if (extWithoutDot === 'avif') {
 	// 	// TODO: update "mime" package
 	// 	return 'image/avif';

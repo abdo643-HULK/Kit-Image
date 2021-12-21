@@ -1,4 +1,3 @@
-import { default as chalk } from 'chalk';
 import { default as imageSizeOf } from 'image-size';
 
 import { URL } from 'url';
@@ -13,7 +12,6 @@ import { isAnimated } from './is-animated';
 import { sendEtagResponse } from './send-payload';
 import { getContentType, getExtension } from './helper';
 import { contentDisposition } from './content-disposition';
-import { imageConfigDefault } from '../../../../config/defaults';
 import {
 	detectContentType,
 	inflightRequests,
@@ -23,7 +21,7 @@ import {
 	AVIF,
 	JPEG,
 	PNG,
-	WEBP
+	WEBP,
 } from './helper';
 
 import type { Socket } from 'net';
@@ -62,7 +60,8 @@ let sharp: sharpFunction;
 
 try {
 	(async () => {
-		sharp = await import(process.env.KIT_IMAGE_SHARP_PATH || 'sharp');
+		sharp = (await import(process.env.KIT_IMAGE_SHARP_PATH || 'sharp'))
+			.default;
 	})();
 } catch (e) {
 	console.error('Please install sharp. ', e);
@@ -71,19 +70,18 @@ try {
 export async function imageOptimizer(
 	req: Request,
 	res: ServerResponse,
-	imageConfig: ImageConfig | undefined,
+	imageConfig: ImageConfig,
 	assetesHandler: Middleware<Request> | RequestHandler,
 	distDir: string
 ): Promise<void> {
-	const imageData = imageConfig || imageConfigDefault;
 	const {
 		deviceSizes = [],
 		imageSizes = [],
 		domains = [],
 		loader,
 		minimumCacheTTL = 60,
-		formats = ['image/webp']
-	} = imageData;
+		formats = ['image/webp'],
+	} = imageConfig;
 
 	if (loader !== 'default') {
 		res.statusCode = 404;
@@ -168,15 +166,11 @@ export async function imageOptimizer(
 
 	const sizes = [...deviceSizes, ...imageSizes];
 
-	console.debug('checking width in sizes');
-
 	if (!sizes.includes(width)) {
 		res.statusCode = 400;
 		res.end(`"w" parameter (width) of ${width} is not allowed`);
 		return;
 	}
-
-	console.debug('checking quality');
 
 	const quality = parseInt(q);
 
@@ -200,14 +194,18 @@ export async function imageOptimizer(
 
 	// first version of the request
 	let dedupeResolver: (val?: PromiseLike<undefined>) => void;
-	inflightRequests.set(hash, new Promise((resolve) => (dedupeResolver = resolve)));
+	inflightRequests.set(
+		hash,
+		new Promise((resolve) => (dedupeResolver = resolve))
+	);
 
 	try {
 		// check if the file exists in the cache dir
 		if (await fileExists(hashDir, 'directory')) {
 			const files = await promises.readdir(hashDir);
 			for (const file of files) {
-				const [maxAgeStr, expireAtSt, etag, extension] = file.split('.');
+				const [maxAgeStr, expireAtSt, etag, extension] =
+					file.split('.');
 				const maxAge = Number(maxAgeStr);
 				const expireAt = Number(expireAtSt);
 				const contentType = getContentType(extension);
@@ -216,7 +214,14 @@ export async function imageOptimizer(
 				// respond with it and finish the request
 				// by returning, else remove the image and continue
 				if (now < expireAt) {
-					const result = setResponseHeaders(req, res, url, etag, maxAge, contentType);
+					const result = setResponseHeaders(
+						req,
+						res,
+						url,
+						etag,
+						maxAge,
+						contentType
+					);
 					if (!result.finished) {
 						createReadStream(fsPath).pipe(res);
 					}
@@ -231,46 +236,53 @@ export async function imageOptimizer(
 		let upstreamType: string | null;
 		let maxAge: number;
 
-		console.debug('reading');
-
 		if (isAbsolute) {
 			// get the remote image and set the headers
 			const upstreamRes = await fetch(href);
 
 			if (!upstreamRes.ok) {
 				res.statusCode = upstreamRes.status;
-				res.end('"url" parameter is valid but upstream response is invalid');
+				res.end(
+					'"url" parameter is valid but upstream response is invalid'
+				);
 				return;
 			}
 
 			res.statusCode = upstreamRes.status;
 			upstreamBuffer = Buffer.from(await upstreamRes.arrayBuffer());
 			upstreamType =
-				detectContentType(upstreamBuffer) || upstreamRes.headers.get('Content-Type');
+				detectContentType(upstreamBuffer) ||
+				upstreamRes.headers.get('Content-Type');
 			maxAge = getMaxAge(upstreamRes.headers.get('Cache-Control'));
 		} else {
 			try {
 				const resBuffers: Buffer[] = [];
 				const mockRes: any = new Writable();
 
-				const isStreamFinished = new Promise(function (resolve, reject) {
+				const isStreamFinished = new Promise(function (
+					resolve,
+					reject
+				) {
 					mockRes.on('finish', () => resolve(true));
 					mockRes.on('end', () => resolve(true));
 					mockRes.on('error', () => reject());
 				});
 
-				// mockRes.write = (chunk: Buffer | string) => {
-				// 	resBuffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-				// };
+				mockRes.write = (chunk: Buffer | string) => {
+					resBuffers.push(
+						Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+					);
+				};
+
 				mockRes._write = (chunk: Buffer | string) => {
-					resBuffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-					// mockRes.write(chunk);
+					mockRes.write(chunk);
 				};
 
 				const mockHeaders: Record<string, string | string[]> = {};
 				mockRes.writeHead = (_status: any, _headers: any) =>
 					Object.assign(mockHeaders, _headers);
-				mockRes.getHeader = (name: string) => mockHeaders[name.toLowerCase()];
+				mockRes.getHeader = (name: string) =>
+					mockHeaders[name.toLowerCase()];
 				mockRes.getHeaders = () => mockHeaders;
 				mockRes.getHeaderNames = () => Object.keys(mockHeaders);
 				mockRes.setHeader = (name: string, value: string | string[]) =>
@@ -301,11 +313,14 @@ export async function imageOptimizer(
 
 				upstreamBuffer = Buffer.concat(resBuffers);
 				upstreamType =
-					detectContentType(upstreamBuffer) || mockRes.getHeader('Content-Type');
+					detectContentType(upstreamBuffer) ||
+					mockRes.getHeader('Content-Type');
 				maxAge = getMaxAge(mockRes.getHeader('Cache-Control'));
 			} catch (err) {
 				res.statusCode = 500;
-				res.end('"url" parameter is valid but upstream response is invalid');
+				res.end(
+					'"url" parameter is valid but upstream response is invalid'
+				);
 				return;
 			}
 		}
@@ -316,10 +331,25 @@ export async function imageOptimizer(
 		// so we cache them and return
 		if (upstreamType) {
 			const vector = VECTOR_TYPES.includes(upstreamType);
-			const animate = ANIMATABLE_TYPES.includes(upstreamType) && isAnimated(upstreamBuffer);
+			const animate =
+				ANIMATABLE_TYPES.includes(upstreamType) &&
+				isAnimated(upstreamBuffer);
 			if (vector || animate) {
-				await writeToCacheDir(hashDir, upstreamType, maxAge, expireAt, upstreamBuffer);
-				sendResponse(req, res, url, maxAge, upstreamType, upstreamBuffer);
+				await writeToCacheDir(
+					hashDir,
+					upstreamType,
+					maxAge,
+					expireAt,
+					upstreamBuffer
+				);
+				sendResponse(
+					req,
+					res,
+					url,
+					maxAge,
+					upstreamType,
+					upstreamBuffer
+				);
 				return;
 			}
 
@@ -345,8 +375,6 @@ export async function imageOptimizer(
 		// 	contentType = JPEG;
 		// }
 
-		console.debug('transforming');
-
 		try {
 			let optimizedBuffer: Buffer | undefined;
 			// Begin sharp transformation logic
@@ -365,12 +393,16 @@ export async function imageOptimizer(
 					const avifQuality = quality - 15;
 					transformer.avif({
 						quality: Math.max(avifQuality, 0),
-						chromaSubsampling: '4:2:0' // same as webp
+						chromaSubsampling: '4:2:0', // same as webp
 					});
 				} else {
+					const start = '\x1b[33m' + '\x1b[1m';
+					const end = '\x1b[22m' + '\x1b[39m';
+					const warning = start + 'Warning: ' + end;
+
 					console.warn(
-						chalk.yellow.bold('Warning: ') +
-							`Your installed version of the 'sharp' package does not support AVIF images. Run 'yarn add sharp@latest' to upgrade to the latest version.\n`
+						warning,
+						`Your installed version of the 'sharp' package does not support AVIF images. Run 'yarn add sharp@latest' to upgrade to the latest version.\n`
 					);
 					transformer.webp({ quality });
 				}
@@ -385,12 +417,26 @@ export async function imageOptimizer(
 			optimizedBuffer = await transformer.toBuffer();
 			// End sharp transformation logic
 			if (optimizedBuffer) {
-				await writeToCacheDir(hashDir, contentType, maxAge, expireAt, optimizedBuffer);
-				sendResponse(req, res, url, maxAge, contentType, optimizedBuffer);
+				await writeToCacheDir(
+					hashDir,
+					contentType,
+					maxAge,
+					expireAt,
+					optimizedBuffer
+				);
+				sendResponse(
+					req,
+					res,
+					url,
+					maxAge,
+					contentType,
+					optimizedBuffer
+				);
 			} else {
 				throw new Error('Unable to optimize buffer');
 			}
 		} catch (error) {
+			console.error(error);
 			sendResponse(req, res, url, maxAge, upstreamType, upstreamBuffer);
 		}
 
@@ -418,7 +464,10 @@ async function writeToCacheDir(
 	await promises.writeFile(filename, buffer);
 }
 
-function getFileNameWithExtension(url: string, contentType: string | null): string | void {
+function getFileNameWithExtension(
+	url: string,
+	contentType: string | null
+): string | void {
 	const [urlWithoutQueryParams] = url.split('?');
 	const fileNameWithExtension = urlWithoutQueryParams.split('/').pop();
 
@@ -442,7 +491,10 @@ function setResponseHeaders(
 	isDev: boolean = false
 ) {
 	res.setHeader('Vary', 'Accept');
-	res.setHeader('Cache-Control', `public, max-age=${isDev ? 0 : maxAge}, must-revalidate`);
+	res.setHeader(
+		'Cache-Control',
+		`public, max-age=${isDev ? 0 : maxAge}, must-revalidate`
+	);
 
 	if (sendEtagResponse(req, res, etag)) {
 		// already called res.end() so we're finished
@@ -455,7 +507,10 @@ function setResponseHeaders(
 
 	const fileName = getFileNameWithExtension(url, contentType);
 	if (fileName) {
-		res.setHeader('Content-Disposition', contentDisposition(fileName, { type: 'inline' }));
+		res.setHeader(
+			'Content-Disposition',
+			contentDisposition(fileName, { type: 'inline' })
+		);
 	}
 
 	res.setHeader('Content-Security-Policy', `script-src 'none'; sandbox;`);
@@ -473,7 +528,15 @@ function sendResponse(
 	isDev: boolean = false
 ) {
 	const etag = getHash([buffer]);
-	const result = setResponseHeaders(req, res, url, etag, maxAge, contentType, isDev);
+	const result = setResponseHeaders(
+		req,
+		res,
+		url,
+		etag,
+		maxAge,
+		contentType,
+		isDev
+	);
 	if (!result.finished) {
 		res.end(buffer);
 	}
@@ -530,17 +593,22 @@ export function getMaxAge(str: string | null): number {
 const extensions = {
 	avif: (transformer: Sharp, quality: number) => {
 		if (transformer.avif) return transformer.avif({ quality });
+		const start = '\x1b[33m' + '\x1b[1m';
+		const end = '\x1b[22m' + '\x1b[39m';
+		const warning = start + 'Warning: ' + end;
 
 		console.warn(
-			chalk.yellow.bold('Warning: ') +
+			warning +
 				`Your installed version of the 'sharp' package does not support AVIF images. Run 'yarn add sharp@latest' to upgrade to the latest version.\n` +
 				'Read more: https://nextjs.org/docs/messages/sharp-version-avif'
 		);
 		transformer.webp({ quality });
 	},
-	webp: (transformer: Sharp, quality: number) => transformer.webp({ quality }),
-	jpeg: (transformer: Sharp, quality: number) => transformer.jpeg({ quality }),
-	png: (transformer: Sharp, quality: number) => transformer.png({ quality })
+	webp: (transformer: Sharp, quality: number) =>
+		transformer.webp({ quality }),
+	jpeg: (transformer: Sharp, quality: number) =>
+		transformer.jpeg({ quality }),
+	png: (transformer: Sharp, quality: number) => transformer.png({ quality }),
 };
 
 export async function resizeImage(

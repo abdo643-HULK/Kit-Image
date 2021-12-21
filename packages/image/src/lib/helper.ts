@@ -1,4 +1,5 @@
-import { browser } from '$app/env';
+import { allSizes, configDeviceSizes } from './constants';
+
 import type { GenImgAttrsData, GenImgAttrsResult, LayoutValue } from 'types';
 
 export function getInt(x: unknown): number | undefined {
@@ -18,18 +19,13 @@ export function generateImgAttrs({
 	width,
 	quality,
 	sizes,
-	loader
+	loader,
 }: GenImgAttrsData): GenImgAttrsResult {
 	if (unoptimized) {
 		return { src, srcset: undefined, sizes: undefined };
 	}
 
-	const allSizes = [51];
-	const configDeviceSizes = [150];
-
-	const { widths, kind } = getWidths(allSizes, configDeviceSizes, width, layout, sizes);
-
-	console.log(widths);
+	const { widths, kind } = getWidths(width, layout, sizes);
 
 	const last = widths.length - 1;
 
@@ -49,13 +45,13 @@ export function generateImgAttrs({
 		// updated by React. That causes multiple unnecessary requests if `srcSet`
 		// and `sizes` are defined.
 		// This bug cannot be reproduced in Chrome or Firefox.
-		src: loader({ src, quality, width: widths[last] })
+		src: loader({ src, quality, width: widths[last] }),
 	};
 }
 
 export function getWidths(
-	allSizes: number[],
-	configDeviceSizes: number[],
+	// allSizes: number[],
+	// configDeviceSizes: number[],
 	width: number | undefined,
 	layout: LayoutValue,
 	sizes: string | undefined
@@ -64,22 +60,32 @@ export function getWidths(
 		// Find all the "vw" percent sizes used in the sizes prop
 		const viewportWidthRe = /(^|\s)(1?\d?\d)vw/g;
 		const percentSizes = [];
-		for (let match: string[]; (match = viewportWidthRe.exec(sizes)); match) {
+		for (
+			let match: string[];
+			(match = viewportWidthRe.exec(sizes));
+			match
+		) {
 			percentSizes.push(parseInt(match[2]));
 		}
 
 		if (percentSizes.length) {
 			const smallestRatio = Math.min(...percentSizes) * 0.01;
 			return {
-				widths: allSizes.filter((s) => s >= configDeviceSizes[0] * smallestRatio),
-				kind: 'w'
+				widths: allSizes.filter(
+					(s) => s >= configDeviceSizes[0] * smallestRatio
+				),
+				kind: 'w',
 			};
 		}
 
 		return { widths: allSizes, kind: 'w' };
 	}
 
-	if (typeof width !== 'number' || layout === 'fill' || layout === 'responsive') {
+	if (
+		typeof width !== 'number' ||
+		layout === 'fill' ||
+		layout === 'responsive'
+	) {
 		return { widths: configDeviceSizes, kind: 'w' };
 	}
 
@@ -94,9 +100,11 @@ export function getWidths(
 			// > something like a magnifying glass.
 			// https://blog.twitter.com/engineering/en_us/topics/infrastructure/2019/capping-image-fidelity-on-ultra-high-resolution-devices.html
 			[width, width * 2 /*, width * 3*/].map(
-				(w) => allSizes.find((p) => p >= w) || allSizes[allSizes.length - 1]
+				(w) =>
+					allSizes.find((p) => p >= w) ||
+					allSizes[allSizes.length - 1]
 			)
-		)
+		),
 	];
 
 	return { widths, kind: 'x' };
