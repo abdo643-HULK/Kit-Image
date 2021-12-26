@@ -1,12 +1,6 @@
 import { dev } from '$app/env';
-import {
-	configDomains,
-	configLoader,
-	configPath,
-	loaders,
-	TAG,
-	VALID_LOADERS,
-} from './constants';
+
+import { configDomains, configLoader, configPath, loaders, TAG, VALID_LOADERS } from './constants';
 
 import type { DefaultImageLoaderProps, ImageLoaderProps } from 'types';
 
@@ -14,12 +8,7 @@ export function normalizeSrc(src: string): string {
 	return src[0] === '/' ? src.slice(1) : src;
 }
 
-export function imgixLoader({
-	root,
-	src,
-	width,
-	quality,
-}: DefaultImageLoaderProps): string {
+export function imgixLoader({ root, src, width, quality }: DefaultImageLoaderProps): string {
 	// Demo: https://static.imgix.net/daisy.png?auto=format&fit=max&w=300
 	const url = new URL(`${root}${normalizeSrc(src)}`);
 	const params = url.searchParams;
@@ -35,27 +24,13 @@ export function imgixLoader({
 	return url.href;
 }
 
-export function akamaiLoader({
-	root,
-	src,
-	width,
-}: DefaultImageLoaderProps): string {
+export function akamaiLoader({ root, src, width }: DefaultImageLoaderProps): string {
 	return `${root}${normalizeSrc(src)}?imwidth=${width}`;
 }
 
-export function cloudinaryLoader({
-	root,
-	src,
-	width,
-	quality,
-}: DefaultImageLoaderProps): string {
+export function cloudinaryLoader({ root, src, width, quality }: DefaultImageLoaderProps): string {
 	// Demo: https://res.cloudinary.com/demo/image/upload/w_300,c_limit,q_auto/turtles.jpg
-	const params = [
-		'f_auto',
-		'c_limit',
-		'w_' + width,
-		'q_' + (quality || 'auto'),
-	];
+	const params = ['f_auto', 'c_limit', 'w_' + width, 'q_' + (quality || 'auto')];
 	const paramsString = params.join(',') + '/';
 	return `${root}${paramsString}${normalizeSrc(src)}`;
 }
@@ -68,18 +43,11 @@ export function defaultImageLoader(loaderProps: ImageLoaderProps) {
 	}
 
 	throw new Error(
-		`Unknown "loader" found in "next.config.js". Expected: ${VALID_LOADERS.join(
-			', '
-		)}. Received: ${configLoader}`
+		`Unknown "loader" found in "next.config.js". Expected: ${VALID_LOADERS.join(', ')}. Received: ${configLoader}`
 	);
 }
 
-export function defaultLoader({
-	root,
-	src,
-	width,
-	quality,
-}: DefaultImageLoaderProps): string {
+export function defaultLoader({ root, src, width, quality }: DefaultImageLoaderProps): string {
 	if (dev) {
 		const missingValues = [];
 
@@ -112,10 +80,7 @@ export function defaultLoader({
 				);
 			}
 
-			if (
-				import.meta.env.NODE_ENV !== 'test' &&
-				!configDomains.includes(parsedSrc.hostname)
-			) {
+			if (import.meta.env.NODE_ENV !== 'test' && !configDomains.includes(parsedSrc.hostname)) {
 				throw new Error(
 					`${TAG} Invalid src prop (${src}), hostname "${parsedSrc.hostname}" is not configured under images in your \`next.config.js\`\n` +
 						`See more info: https://nextjs.org/docs/messages/next-image-unconfigured-host`
@@ -131,7 +96,5 @@ export function defaultLoader({
 }
 
 export function customLoader({ src }: DefaultImageLoaderProps): string {
-	throw new Error(
-		`${TAG} Image with src "${src}" is missing "loader" prop.` + `\n`
-	);
+	throw new Error(`${TAG} Image with src "${src}" is missing "loader" prop.` + `\n`);
 }

@@ -28,13 +28,7 @@ import type { ServerResponse, IncomingHttpHeaders } from 'http';
 // import type Server from './base-server';
 import type { ImageConfig, ImageExtension } from 'types';
 
-type ContentType =
-	| 'image/avif'
-	| 'image/webp'
-	| 'image/png'
-	| 'image/jpeg'
-	| 'image/gif'
-	| 'image/svg+xml';
+type ContentType = 'image/avif' | 'image/webp' | 'image/png' | 'image/jpeg' | 'image/gif' | 'image/svg+xml';
 
 const AVIF = 'image/avif';
 const WEBP = 'image/webp';
@@ -80,11 +74,9 @@ try {
 	(async () => {
 		sharp = await import((import.meta.env.KIT_IMAGE_SHARP_PATH as string) || 'sharp');
 	})();
-} catch (e) {
+} catch (e) { 
 	// Sharp not present on the server, Squoosh fallback will be used
 }
-
-let showSharpMissingWarning = import.meta.env.PROD;
 
 export async function imageOptimizer(
 	// server: Server,
@@ -103,7 +95,7 @@ export async function imageOptimizer(
 		domains = [],
 		loader,
 		minimumCacheTTL = 60,
-		formats = ['image/webp']
+		formats = ['image/webp'],
 	} = imageData;
 
 	if (loader !== 'default') {
@@ -179,9 +171,6 @@ export async function imageOptimizer(
 		return;
 	}
 
-	// Should match output from next-image-loader
-	const isStatic = url.startsWith(`${basePath || ''}/_next/static/media`);
-
 	const width = parseInt(w, 10);
 
 	if (!width || isNaN(width)) {
@@ -222,7 +211,7 @@ export async function imageOptimizer(
 	}
 
 	let dedupeResolver: (val?: PromiseLike<undefined>) => void;
-	inflightRequests.set(hash, new Promise((resolve) => (dedupeResolver = resolve)));
+	inflightRequests.set(hash, new Promise(resolve => (dedupeResolver = resolve)));
 
 	try {
 		if (await fileExists(hashDir, 'directory')) {
@@ -234,16 +223,7 @@ export async function imageOptimizer(
 				const contentType = getContentType(extension);
 				const fsPath = join(hashDir, file);
 				if (now < expireAt) {
-					const result = setResponseHeaders(
-						req,
-						res,
-						url,
-						etag,
-						maxAge,
-						contentType,
-						isStatic,
-						isDev
-					);
+					const result = setResponseHeaders(req, res, url, etag, maxAge, contentType, isStatic, isDev);
 					if (!result.finished) {
 						createReadStream(fsPath).pipe(res);
 					}
@@ -269,8 +249,7 @@ export async function imageOptimizer(
 
 			res.statusCode = upstreamRes.status;
 			upstreamBuffer = Buffer.from(await upstreamRes.arrayBuffer());
-			upstreamType =
-				detectContentType(upstreamBuffer) || upstreamRes.headers.get('Content-Type');
+			upstreamType = detectContentType(upstreamBuffer) || upstreamRes.headers.get('Content-Type');
 			maxAge = getMaxAge(upstreamRes.headers.get('Cache-Control'));
 		} else {
 			try {
@@ -292,8 +271,7 @@ export async function imageOptimizer(
 
 				const mockHeaders: Record<string, string | string[]> = {};
 
-				mockRes.writeHead = (_status: any, _headers: any) =>
-					Object.assign(mockHeaders, _headers);
+				mockRes.writeHead = (_status: any, _headers: any) => Object.assign(mockHeaders, _headers);
 				mockRes.getHeader = (name: string) => mockHeaders[name.toLowerCase()];
 				mockRes.getHeaders = () => mockHeaders;
 				mockRes.getHeaderNames = () => Object.keys(mockHeaders);
@@ -303,7 +281,7 @@ export async function imageOptimizer(
 					delete mockHeaders[name.toLowerCase()];
 				};
 				mockRes._implicitHeader = () => {};
-				mockRes.connection = res.connection;
+				mockRes.connection = res.socket;
 				mockRes.finished = false;
 				mockRes.statusCode = 200;
 
@@ -329,8 +307,7 @@ export async function imageOptimizer(
 				res.statusCode = mockRes.statusCode;
 
 				upstreamBuffer = Buffer.concat(resBuffers);
-				upstreamType =
-					detectContentType(upstreamBuffer) || mockRes.getHeader('Content-Type');
+				upstreamType = detectContentType(upstreamBuffer) || mockRes.getHeader('Content-Type');
 				maxAge = getMaxAge(mockRes.getHeader('Cache-Control'));
 			} catch (err) {
 				res.statusCode = 500;
@@ -369,108 +346,49 @@ export async function imageOptimizer(
 
 		try {
 			let optimizedBuffer: Buffer | undefined;
-			if (sharp) {
-				// Begin sharp transformation logic
-				const transformer = sharp(upstreamBuffer);
 
-				transformer.rotate();
+			// Show sharp warning in production once
+			console.warn(
+				'Warning: ' +
+					`For production Image Optimization with Next.js, the optional 'sharp' package is strongly recommended. Run 'yarn add sharp', and Next.js will use it automatically for Image Optimization.\n` +
+					'Read more: https://nextjs.org/docs/messages/sharp-missing-in-production'
+			);
 
-				const { width: metaWidth } = await transformer.metadata();
-
-				if (metaWidth && metaWidth > width) {
-					transformer.resize(width);
-				}
-
-				if (contentType === AVIF) {
-					if (transformer.avif) {
-						const avifQuality = quality - 15;
-						transformer.avif({
-							quality: Math.max(avifQuality, 0),
-							chromaSubsampling: '4:2:0' // same as webp
-						});
-					} else {
-						console.warn(
-							chalk.yellow.bold('Warning: ') +
-								`Your installed version of the 'sharp' package does not support AVIF images. Run 'yarn add sharp@latest' to upgrade to the latest version.\n` +
-								'Read more: https://nextjs.org/docs/messages/sharp-version-avif'
-						);
-						transformer.webp({ quality });
-					}
-				} else if (contentType === WEBP) {
-					transformer.webp({ quality });
-				} else if (contentType === PNG) {
-					transformer.png({ quality });
-				} else if (contentType === JPEG) {
-					transformer.jpeg({ quality });
-				}
-
-				optimizedBuffer = await transformer.toBuffer();
-				// End sharp transformation logic
+			// Begin Squoosh transformation logic
+			const orientation = await getOrientation(upstreamBuffer);
+			const operations: Operation[] = [];
+			if (orientation === Orientation.RIGHT_TOP) {
+				operations.push({ type: 'rotate', numRotations: 1 });
+			} else if (orientation === Orientation.BOTTOM_RIGHT) {
+				operations.push({ type: 'rotate', numRotations: 2 });
+			} else if (orientation === Orientation.LEFT_BOTTOM) {
+				operations.push({ type: 'rotate', numRotations: 3 });
 			} else {
-				// // Show sharp warning in production once
-				// if (showSharpMissingWarning) {
-				// 	console.warn(
-				// 		chalk.yellow.bold('Warning: ') +
-				// 			`For production Image Optimization with Next.js, the optional 'sharp' package is strongly recommended. Run 'yarn add sharp', and Next.js will use it automatically for Image Optimization.\n` +
-				// 			'Read more: https://nextjs.org/docs/messages/sharp-missing-in-production'
-				// 	);
-				// 	showSharpMissingWarning = false;
-				// }
-				// // Begin Squoosh transformation logic
-				// const orientation = await getOrientation(upstreamBuffer);
-				// const operations: Operation[] = [];
-				// if (orientation === Orientation.RIGHT_TOP) {
-				// 	operations.push({ type: 'rotate', numRotations: 1 });
-				// } else if (orientation === Orientation.BOTTOM_RIGHT) {
-				// 	operations.push({ type: 'rotate', numRotations: 2 });
-				// } else if (orientation === Orientation.LEFT_BOTTOM) {
-				// 	operations.push({ type: 'rotate', numRotations: 3 });
-				// } else {
-				// 	// TODO: support more orientations
-				// 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-				// 	// const _: never = orientation
-				// }
-				// operations.push({ type: 'resize', width });
-				// if (contentType === AVIF) {
-				// 	optimizedBuffer = await processBuffer(
-				// 		upstreamBuffer,
-				// 		operations,
-				// 		'avif',
-				// 		quality
-				// 	);
-				// } else if (contentType === WEBP) {
-				// 	optimizedBuffer = await processBuffer(
-				// 		upstreamBuffer,
-				// 		operations,
-				// 		'webp',
-				// 		quality
-				// 	);
-				// } else if (contentType === PNG) {
-				// 	optimizedBuffer = await processBuffer(
-				// 		upstreamBuffer,
-				// 		operations,
-				// 		'png',
-				// 		quality
-				// 	);
-				// } else if (contentType === JPEG) {
-				// 	optimizedBuffer = await processBuffer(
-				// 		upstreamBuffer,
-				// 		operations,
-				// 		'jpeg',
-				// 		quality
-				// 	);
-				// }
-				// End Squoosh transformation logic
+				// TODO: support more orientations
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				// const _: never = orientation
 			}
+
+			operations.push({ type: 'resize', width });
+			if (contentType === AVIF) {
+				optimizedBuffer = await processBuffer(upstreamBuffer, operations, 'avif', quality);
+			} else if (contentType === WEBP) {
+				optimizedBuffer = await processBuffer(upstreamBuffer, operations, 'webp', quality);
+			} else if (contentType === PNG) {
+				optimizedBuffer = await processBuffer(upstreamBuffer, operations, 'png', quality);
+			} else if (contentType === JPEG) {
+				optimizedBuffer = await processBuffer(upstreamBuffer, operations, 'jpeg', quality);
+			}
+			// End Squoosh transformation logic
 
 			if (optimizedBuffer) {
 				await writeToCacheDir(hashDir, contentType, maxAge, expireAt, optimizedBuffer);
-				sendResponse(req, res, url, maxAge, contentType, optimizedBuffer, isStatic, isDev);
+				sendResponse(req, res, url, maxAge, contentType, optimizedBuffer, isDev);
 			} else {
 				throw new Error('Unable to optimize buffer');
 			}
 		} catch (error) {
-			sendResponse(req, res, url, maxAge, upstreamType, upstreamBuffer, isStatic, isDev);
+			sendResponse(req, res, url, maxAge, upstreamType, upstreamBuffer, isDev);
 		}
 
 		return;
@@ -481,13 +399,7 @@ export async function imageOptimizer(
 	}
 }
 
-async function writeToCacheDir(
-	dir: string,
-	contentType: string,
-	maxAge: number,
-	expireAt: number,
-	buffer: Buffer
-) {
+async function writeToCacheDir(dir: string, contentType: string, maxAge: number, expireAt: number, buffer: Buffer) {
 	await promises.mkdir(dir, { recursive: true });
 
 	const extension = getExtension(contentType);
@@ -518,16 +430,10 @@ function setResponseHeaders(
 	etag: string,
 	maxAge: number,
 	contentType: string | null,
-	isStatic: boolean,
 	isDev: boolean
 ) {
 	res.setHeader('Vary', 'Accept');
-	res.setHeader(
-		'Cache-Control',
-		isStatic
-			? 'public, max-age=315360000, immutable'
-			: `public, max-age=${isDev ? 0 : maxAge}, must-revalidate`
-	);
+	res.setHeader('Cache-Control', `public, max-age=${isDev ? 0 : maxAge}, must-revalidate`);
 
 	if (sendEtagResponse(req, res, etag)) {
 		// already called res.end() so we're finished
@@ -555,11 +461,10 @@ function sendResponse(
 	maxAge: number,
 	contentType: string | null,
 	buffer: Buffer,
-	isStatic: boolean,
 	isDev: boolean
 ) {
 	const etag = getHash([buffer]);
-	const result = setResponseHeaders(req, res, url, etag, maxAge, contentType, isStatic, isDev);
+	const result = setResponseHeaders(req, res, url, etag, maxAge, contentType, isDev);
 	if (!result.finished) {
 		res.end(buffer);
 	}
@@ -613,21 +518,13 @@ export function detectContentType(buffer: Buffer): ContentType | null {
 	if ([0x47, 0x49, 0x46, 0x38].every((b, i) => buffer[i] === b)) {
 		return GIF;
 	}
-	if (
-		[0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50].every(
-			(b, i) => !b || buffer[i] === b
-		)
-	) {
+	if ([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50].every((b, i) => !b || buffer[i] === b)) {
 		return WEBP;
 	}
 	if ([0x3c, 0x3f, 0x78, 0x6d, 0x6c].every((b, i) => buffer[i] === b)) {
 		return SVG;
 	}
-	if (
-		[0, 0, 0, 0, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66].every(
-			(b, i) => !b || buffer[i] === b
-		)
-	) {
+	if ([0, 0, 0, 0, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66].every((b, i) => !b || buffer[i] === b)) {
 		return AVIF;
 	}
 
@@ -649,22 +546,6 @@ export function getMaxAge(str: string | null): number {
 	return 0;
 }
 
-const extensions = {
-	avif: (transformer: Sharp, quality: number) => {
-		if (transformer.avif) return transformer.avif({ quality });
-
-		console.warn(
-			chalk.yellow.bold('Warning: ') +
-				`Your installed version of the 'sharp' package does not support AVIF images. Run 'yarn add sharp@latest' to upgrade to the latest version.\n` +
-				'Read more: https://nextjs.org/docs/messages/sharp-version-avif'
-		);
-		transformer.webp({ quality });
-	},
-	webp: (transformer: Sharp, quality: number) => transformer.webp({ quality }),
-	jpeg: (transformer: Sharp, quality: number) => transformer.jpeg({ quality }),
-	png: (transformer: Sharp, quality: number) => transformer.png({ quality })
-};
-
 export async function resizeImage(
 	content: Buffer,
 	dimension: 'width' | 'height',
@@ -673,26 +554,10 @@ export async function resizeImage(
 	extension: ImageExtension,
 	quality: number
 ): Promise<Buffer | undefined> {
-	if (sharp) {
-		const transformer = sharp(content);
-
-		extensions[extension](transformer, quality);
-
-		if (dimension === 'width') {
-			transformer.resize(size);
-		} else {
-			transformer.resize(null, size);
-		}
-
-		const buf = await transformer.toBuffer();
-
-		return buf;
-	}
-
-	// const resizeOperationOpts: Operation =
-	// 	dimension === 'width' ? { type: 'resize', width: size } : { type: 'resize', height: size };
-	// const buf = await processBuffer(content, [resizeOperationOpts], extension, quality);
-	// return buf;
+	const resizeOperationOpts: Operation =
+		dimension === 'width' ? { type: 'resize', width: size } : { type: 'resize', height: size };
+	const buf = await processBuffer(content, [resizeOperationOpts], extension, quality);
+	return buf;
 }
 
 export async function getImageSize(
@@ -706,14 +571,8 @@ export async function getImageSize(
 	// TODO: upgrade "image-size" package to support AVIF
 	// See https://github.com/image-size/image-size/issues/348
 	if (extension === 'avif') {
-		if (sharp) {
-			const transformer = sharp(buffer);
-			const { width, height } = await transformer.metadata();
-			return { width, height };
-		}
-
-		// const { width, height } = await decodeBuffer(buffer);
-		// return { width, height };
+		const { width, height } = await decodeBuffer(buffer);
+		return { width, height };
 	}
 
 	const { width, height } = imageSizeOf(buffer);

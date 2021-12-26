@@ -17,11 +17,9 @@
 		"outDir": "build",
 		"sourceMap": true,
 		"paths": {
-			"$dist": ["src/image-optimizer/dist"],
-			"$dist/*": ["src/image-optimizer/dist/*"],
 			"types": ["../../types.d.ts"]
 		}
 	},
-	"exclude": ["build", "src/image-optimizer/dist/**/*", "src/**/*.js"],
+	"exclude": ["build", "src/**/*.js"],
 	"include": ["index.ts", "src/**/*.d.ts", "src/**/*.ts", "../../config/defaults.ts"]
 }

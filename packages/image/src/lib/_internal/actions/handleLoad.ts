@@ -2,11 +2,7 @@ import { dev } from '$app/env';
 import { EMPTY_DATA_URL, TAG } from '../constants';
 import { loadedImageURLs } from '../singeltons';
 
-import type {
-	LayoutValue,
-	OnLoadingComplete,
-	PlaceholderValue,
-} from '../../../types';
+import type { LayoutValue, OnLoadingComplete, PlaceholderValue } from 'types';
 
 export default function handleLoad(
 	img: HTMLImageElement,
@@ -18,13 +14,7 @@ export default function handleLoad(
 		errorHandler?: (e: ErrorEvent) => void;
 	}
 ) {
-	const {
-		src,
-		layout,
-		placeholder,
-		onLoadingComplete = () => {},
-		errorHandler = () => {},
-	} = options;
+	const { src, layout, placeholder, onLoadingComplete = () => {}, errorHandler = () => {} } = options;
 
 	async function loadHandler(e?: Event) {
 		try {
@@ -46,24 +36,15 @@ export default function handleLoad(
 
 				if (dev) {
 					if (img.parentElement?.parentElement) {
-						const parent = getComputedStyle(
-							img.parentElement.parentElement
-						);
+						const parent = getComputedStyle(img.parentElement.parentElement);
 
 						if (!parent.position) {
 							// The parent has not been rendered to the dom yet and therefore it has no position. Skip the warnings for such cases.
-						} else if (
-							layout === 'responsive' &&
-							parent.display === 'flex'
-						) {
+						} else if (layout === 'responsive' && parent.display === 'flex') {
 							console.warn(
 								`${TAG} Image with src "${src}" may not render properly as a child of a flex container. Consider wrapping the image with a div to configure the width.`
 							);
-						} else if (
-							layout === 'fill' &&
-							parent.position !== 'relative' &&
-							parent.position !== 'fixed'
-						) {
+						} else if (layout === 'fill' && parent.position !== 'relative' && parent.position !== 'fixed') {
 							console.warn(
 								`${TAG} Image with src "${src}" may not render properly with a parent using position:"${parent.position}". Consider changing the parent style to position:"relative" with a width and height.`
 							);

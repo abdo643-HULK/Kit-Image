@@ -7,22 +7,10 @@ import { mediaType } from '@hapi/accept';
 import { Readable, Writable } from 'stream';
 import { createReadStream, promises } from 'fs';
 
-import { fileExists } from './file-exists';
 import { isAnimated } from './is-animated';
-import { sendEtagResponse } from './send-payload';
 import { getContentType, getExtension } from './helper';
 import { contentDisposition } from './content-disposition';
-import {
-	detectContentType,
-	inflightRequests,
-	CACHE_VERSION,
-	ANIMATABLE_TYPES,
-	VECTOR_TYPES,
-	AVIF,
-	JPEG,
-	PNG,
-	WEBP,
-} from './helper';
+import { detectContentType, inflightRequests, fileExists, sendEtagResponse } from './helper';
 
 import type { Socket } from 'net';
 import type { RequestHandler } from 'sirv';
@@ -30,6 +18,7 @@ import type { SharpOptions, Sharp } from 'sharp';
 import type { Middleware, Request } from 'polka';
 import type { ImageConfig, ImageExtension } from 'types';
 import type { ServerResponse, IncomingHttpHeaders } from 'http';
+import { ANIMATABLE_TYPES, AVIF, CACHE_VERSION, JPEG, PNG, VECTOR_TYPES, WEBP } from './constants';
 
 interface MockRequest extends Readable, Request {
 	headers: IncomingHttpHeaders;
@@ -60,8 +49,7 @@ let sharp: sharpFunction;
 
 try {
 	(async () => {
-		sharp = (await import(process.env.KIT_IMAGE_SHARP_PATH || 'sharp'))
-			.default;
+		sharp = (await import(process.env.KIT_IMAGE_SHARP_PATH || 'sharp')).default;
 	})();
 } catch (e) {
 	console.error('Please install sharp. ', e);
@@ -72,7 +60,7 @@ export async function imageOptimizer(
 	res: ServerResponse,
 	imageConfig: ImageConfig,
 	assetesHandler: Middleware<Request> | RequestHandler,
-	distDir: string
+	distDir: string = '.svelte-kit'
 ): Promise<void> {
 	const {
 		deviceSizes = [],
@@ -194,18 +182,14 @@ export async function imageOptimizer(
 
 	// first version of the request
 	let dedupeResolver: (val?: PromiseLike<undefined>) => void;
-	inflightRequests.set(
-		hash,
-		new Promise((resolve) => (dedupeResolver = resolve))
-	);
+	inflightRequests.set(hash, new Promise(resolve => (dedupeResolver = resolve)));
 
 	try {
 		// check if the file exists in the cache dir
 		if (await fileExists(hashDir, 'directory')) {
 			const files = await promises.readdir(hashDir);
 			for (const file of files) {
-				const [maxAgeStr, expireAtSt, etag, extension] =
-					file.split('.');
+				const [maxAgeStr, expireAtSt, etag, extension] = file.split('.');
 				const maxAge = Number(maxAgeStr);
 				const expireAt = Number(expireAtSt);
 				const contentType = getContentType(extension);
@@ -214,14 +198,7 @@ export async function imageOptimizer(
 				// respond with it and finish the request
 				// by returning, else remove the image and continue
 				if (now < expireAt) {
-					const result = setResponseHeaders(
-						req,
-						res,
-						url,
-						etag,
-						maxAge,
-						contentType
-					);
+					const result = setResponseHeaders(req, res, url, etag, maxAge, contentType);
 					if (!result.finished) {
 						createReadStream(fsPath).pipe(res);
 					}
@@ -242,36 +219,27 @@ export async function imageOptimizer(
 
 			if (!upstreamRes.ok) {
 				res.statusCode = upstreamRes.status;
-				res.end(
-					'"url" parameter is valid but upstream response is invalid'
-				);
+				res.end('"url" parameter is valid but upstream response is invalid');
 				return;
 			}
 
 			res.statusCode = upstreamRes.status;
 			upstreamBuffer = Buffer.from(await upstreamRes.arrayBuffer());
-			upstreamType =
-				detectContentType(upstreamBuffer) ||
-				upstreamRes.headers.get('Content-Type');
+			upstreamType = detectContentType(upstreamBuffer) || upstreamRes.headers.get('Content-Type');
 			maxAge = getMaxAge(upstreamRes.headers.get('Cache-Control'));
 		} else {
 			try {
 				const resBuffers: Buffer[] = [];
 				const mockRes: any = new Writable();
 
-				const isStreamFinished = new Promise(function (
-					resolve,
-					reject
-				) {
+				const isStreamFinished = new Promise(function (resolve, reject) {
 					mockRes.on('finish', () => resolve(true));
 					mockRes.on('end', () => resolve(true));
 					mockRes.on('error', () => reject());
 				});
 
 				mockRes.write = (chunk: Buffer | string) => {
-					resBuffers.push(
-						Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-					);
+					resBuffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
 				};
 
 				mockRes._write = (chunk: Buffer | string) => {
@@ -279,10 +247,8 @@ export async function imageOptimizer(
 				};
 
 				const mockHeaders: Record<string, string | string[]> = {};
-				mockRes.writeHead = (_status: any, _headers: any) =>
-					Object.assign(mockHeaders, _headers);
-				mockRes.getHeader = (name: string) =>
-					mockHeaders[name.toLowerCase()];
+				mockRes.writeHead = (_status: any, _headers: any) => Object.assign(mockHeaders, _headers);
+				mockRes.getHeader = (name: string) => mockHeaders[name.toLowerCase()];
 				mockRes.getHeaders = () => mockHeaders;
 				mockRes.getHeaderNames = () => Object.keys(mockHeaders);
 				mockRes.setHeader = (name: string, value: string | string[]) =>
@@ -312,15 +278,11 @@ export async function imageOptimizer(
 				res.statusCode = mockRes.statusCode;
 
 				upstreamBuffer = Buffer.concat(resBuffers);
-				upstreamType =
-					detectContentType(upstreamBuffer) ||
-					mockRes.getHeader('Content-Type');
+				upstreamType = detectContentType(upstreamBuffer) || mockRes.getHeader('Content-Type');
 				maxAge = getMaxAge(mockRes.getHeader('Cache-Control'));
 			} catch (err) {
 				res.statusCode = 500;
-				res.end(
-					'"url" parameter is valid but upstream response is invalid'
-				);
+				res.end('"url" parameter is valid but upstream response is invalid');
 				return;
 			}
 		}
@@ -331,25 +293,10 @@ export async function imageOptimizer(
 		// so we cache them and return
 		if (upstreamType) {
 			const vector = VECTOR_TYPES.includes(upstreamType);
-			const animate =
-				ANIMATABLE_TYPES.includes(upstreamType) &&
-				isAnimated(upstreamBuffer);
+			const animate = ANIMATABLE_TYPES.includes(upstreamType) && isAnimated(upstreamBuffer);
 			if (vector || animate) {
-				await writeToCacheDir(
-					hashDir,
-					upstreamType,
-					maxAge,
-					expireAt,
-					upstreamBuffer
-				);
-				sendResponse(
-					req,
-					res,
-					url,
-					maxAge,
-					upstreamType,
-					upstreamBuffer
-				);
+				await writeToCacheDir(hashDir, upstreamType, maxAge, expireAt, upstreamBuffer);
+				sendResponse(req, res, url, maxAge, upstreamType, upstreamBuffer);
 				return;
 			}
 
@@ -365,15 +312,6 @@ export async function imageOptimizer(
 			: upstreamType?.startsWith('image/') && getExtension(upstreamType)
 			? upstreamType
 			: JPEG;
-
-		// let contentType: string;
-		// if (mimeType) {
-		// 	contentType = mimeType;
-		// } else if (upstreamType?.startsWith('image/') && getExtension(upstreamType)) {
-		// 	contentType = upstreamType;
-		// } else {
-		// 	contentType = JPEG;
-		// }
 
 		try {
 			let optimizedBuffer: Buffer | undefined;
@@ -417,21 +355,8 @@ export async function imageOptimizer(
 			optimizedBuffer = await transformer.toBuffer();
 			// End sharp transformation logic
 			if (optimizedBuffer) {
-				await writeToCacheDir(
-					hashDir,
-					contentType,
-					maxAge,
-					expireAt,
-					optimizedBuffer
-				);
-				sendResponse(
-					req,
-					res,
-					url,
-					maxAge,
-					contentType,
-					optimizedBuffer
-				);
+				await writeToCacheDir(hashDir, contentType, maxAge, expireAt, optimizedBuffer);
+				sendResponse(req, res, url, maxAge, contentType, optimizedBuffer);
 			} else {
 				throw new Error('Unable to optimize buffer');
 			}
@@ -448,13 +373,7 @@ export async function imageOptimizer(
 	}
 }
 
-async function writeToCacheDir(
-	dir: string,
-	contentType: string,
-	maxAge: number,
-	expireAt: number,
-	buffer: Buffer
-) {
+async function writeToCacheDir(dir: string, contentType: string, maxAge: number, expireAt: number, buffer: Buffer) {
 	await promises.mkdir(dir, { recursive: true });
 
 	const extension = getExtension(contentType);
@@ -464,10 +383,7 @@ async function writeToCacheDir(
 	await promises.writeFile(filename, buffer);
 }
 
-function getFileNameWithExtension(
-	url: string,
-	contentType: string | null
-): string | void {
+function getFileNameWithExtension(url: string, contentType: string | null): string | void {
 	const [urlWithoutQueryParams] = url.split('?');
 	const fileNameWithExtension = urlWithoutQueryParams.split('/').pop();
 
@@ -491,10 +407,7 @@ function setResponseHeaders(
 	isDev: boolean = false
 ) {
 	res.setHeader('Vary', 'Accept');
-	res.setHeader(
-		'Cache-Control',
-		`public, max-age=${isDev ? 0 : maxAge}, must-revalidate`
-	);
+	res.setHeader('Cache-Control', `public, max-age=${isDev ? 0 : maxAge}, must-revalidate`);
 
 	if (sendEtagResponse(req, res, etag)) {
 		// already called res.end() so we're finished
@@ -507,10 +420,7 @@ function setResponseHeaders(
 
 	const fileName = getFileNameWithExtension(url, contentType);
 	if (fileName) {
-		res.setHeader(
-			'Content-Disposition',
-			contentDisposition(fileName, { type: 'inline' })
-		);
+		res.setHeader('Content-Disposition', contentDisposition(fileName, { type: 'inline' }));
 	}
 
 	res.setHeader('Content-Security-Policy', `script-src 'none'; sandbox;`);
@@ -528,15 +438,7 @@ function sendResponse(
 	isDev: boolean = false
 ) {
 	const etag = getHash([buffer]);
-	const result = setResponseHeaders(
-		req,
-		res,
-		url,
-		etag,
-		maxAge,
-		contentType,
-		isDev
-	);
+	const result = setResponseHeaders(req, res, url, etag, maxAge, contentType, isDev);
 	if (!result.finished) {
 		res.end(buffer);
 	}
@@ -604,10 +506,8 @@ const extensions = {
 		);
 		transformer.webp({ quality });
 	},
-	webp: (transformer: Sharp, quality: number) =>
-		transformer.webp({ quality }),
-	jpeg: (transformer: Sharp, quality: number) =>
-		transformer.jpeg({ quality }),
+	webp: (transformer: Sharp, quality: number) => transformer.webp({ quality }),
+	jpeg: (transformer: Sharp, quality: number) => transformer.jpeg({ quality }),
 	png: (transformer: Sharp, quality: number) => transformer.png({ quality }),
 };
 

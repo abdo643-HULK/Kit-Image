@@ -60,20 +60,14 @@ export function getWidths(
 		// Find all the "vw" percent sizes used in the sizes prop
 		const viewportWidthRe = /(^|\s)(1?\d?\d)vw/g;
 		const percentSizes = [];
-		for (
-			let match: string[];
-			(match = viewportWidthRe.exec(sizes));
-			match
-		) {
+		for (let match: string[]; (match = viewportWidthRe.exec(sizes)); match) {
 			percentSizes.push(parseInt(match[2]));
 		}
 
 		if (percentSizes.length) {
 			const smallestRatio = Math.min(...percentSizes) * 0.01;
 			return {
-				widths: allSizes.filter(
-					(s) => s >= configDeviceSizes[0] * smallestRatio
-				),
+				widths: allSizes.filter(s => s >= configDeviceSizes[0] * smallestRatio),
 				kind: 'w',
 			};
 		}
@@ -81,11 +75,7 @@ export function getWidths(
 		return { widths: allSizes, kind: 'w' };
 	}
 
-	if (
-		typeof width !== 'number' ||
-		layout === 'fill' ||
-		layout === 'responsive'
-	) {
+	if (typeof width !== 'number' || layout === 'fill' || layout === 'responsive') {
 		return { widths: configDeviceSizes, kind: 'w' };
 	}
 
@@ -99,11 +89,7 @@ export function getWidths(
 			// > wasteful as the human eye cannot see that level of detail without
 			// > something like a magnifying glass.
 			// https://blog.twitter.com/engineering/en_us/topics/infrastructure/2019/capping-image-fidelity-on-ultra-high-resolution-devices.html
-			[width, width * 2 /*, width * 3*/].map(
-				(w) =>
-					allSizes.find((p) => p >= w) ||
-					allSizes[allSizes.length - 1]
-			)
+			[width, width * 2 /*, width * 3*/].map(w => allSizes.find(p => p >= w) || allSizes[allSizes.length - 1])
 		),
 	];
 

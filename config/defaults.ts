@@ -7,5 +7,5 @@ export const imageConfigDefault: ImageConfigComplete = {
 	loader: 'default',
 	domains: [],
 	minimumCacheTTL: 60,
-	formats: ['image/webp', 'image/avif']
+	formats: ['image/webp'],
 };

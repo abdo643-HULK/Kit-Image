@@ -1,4 +1,4 @@
-import type { VALID_LAYOUT_VALUES, VALID_LOADERS } from './packages/image/src/lib/constants';
+import type { VALID_LAYOUT_VALUES, VALID_LOADERS } from './packages/image/src/lib/_internal/constants';
 
 export type LayoutValue = typeof VALID_LAYOUT_VALUES[number];
 export type LoaderValue = typeof VALID_LOADERS[number];

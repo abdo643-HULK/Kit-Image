@@ -2,13 +2,13 @@
 	import { browser, dev } from '$app/env';
 	import { createEventDispatcher } from 'svelte';
 
-	import { toBase64 } from '$lib/utils';
+	import { toBase64 } from './_internal/utils';
 
-	import { defaultImageLoader } from './loaders';
-	import { handleLoad, intersection } from './actions';
-	import { generateImgAttrs, getInt } from './helper';
-	import { allImgs, loadedImageURLs } from './singeltons';
-	import { EMPTY_DATA_URL, TAG, VALID_LAYOUT_VALUES } from './constants';
+	import { defaultImageLoader } from './_internal/loaders';
+	import { handleLoad, intersection } from './_internal/actions';
+	import { generateImgAttrs, getInt } from './_internal/helper';
+	import { allImgs, loadedImageURLs } from './_internal/singeltons';
+	import { EMPTY_DATA_URL, TAG, VALID_LAYOUT_VALUES } from './_internal/constants';
 
 	import type {
 		DecodingAttribute,
@@ -17,7 +17,7 @@
 		LoadingAttribute,
 		ObjectFitStyle,
 		ObjectPositionStyle,
-		PlaceholderValue
+		PlaceholderValue,
 	} from 'types';
 </script>
 
@@ -25,7 +25,7 @@
 	let klass = '';
 	export { klass as class };
 	export let src: string;
-	export let image: HTMLImageElement | undefined;
+	export let image: HTMLImageElement | undefined = undefined;
 	export let width: number = 0;
 	export let height: number = 0;
 	export let alt: string = '';
@@ -100,7 +100,7 @@
 				`${TAG} "src" property must be defined. Received:  ${JSON.stringify({
 					width,
 					height,
-					quality
+					quality,
 				})}`
 			);
 		}
@@ -167,7 +167,7 @@
 			const urlStr = loader({
 				src,
 				width: widthInt || 400,
-				quality: qualityInt || 75
+				quality: qualityInt || 75,
 			});
 			let url: URL | undefined;
 			try {
@@ -181,7 +181,7 @@
 		}
 
 		if (browser && !perfObserver && window.PerformanceObserver) {
-			perfObserver = new PerformanceObserver((entryList) => {
+			perfObserver = new PerformanceObserver(entryList => {
 				for (const entry of entryList.getEntries()) {
 					// @ts-ignore - missing "LargestContentfulPaint" class with "element" prop
 					const imgSrc = entry?.element?.src || '';
@@ -202,7 +202,7 @@
 			});
 			perfObserver.observe({
 				type: 'largest-contentful-paint',
-				buffered: true
+				buffered: true,
 			});
 		}
 	}
@@ -212,7 +212,7 @@
 	let imgAttributes: GenImgAttrsResult = {
 		src: EMPTY_DATA_URL,
 		srcset: undefined,
-		sizes: undefined
+		sizes: undefined,
 	};
 
 	$: imgAttributes =
@@ -224,7 +224,7 @@
 					width: widthInt,
 					quality: qualityInt,
 					sizes,
-					loader
+					loader,
 			  })
 			: imgAttributes;
 
@@ -257,12 +257,12 @@
 		width: widthInt,
 		quality: qualityInt,
 		sizes,
-		loader
+		loader,
 	});
 
 	const linkProps = {
 		imagesrcset: imgAttributes.srcset,
-		imagesizes: imgAttributes.sizes
+		imagesizes: imgAttributes.sizes,
 	};
 
 	const dispatch = createEventDispatcher();
@@ -293,11 +293,7 @@ class:intrinsic={layout === 'intrinsic'}
 -->
 
 <span style={cssVars} class={`img-wrapper ${layout ? layout : ''}`}>
-	<span
-		style={hasSizer ? '' : 'display: none;'}
-		class={`img-sizer ${layout ? layout : ''}`}
-		aria-hidden={true}
-	>
+	<span style={hasSizer ? '' : 'display: none;'} class={`img-sizer ${layout ? layout : ''}`} aria-hidden={true}>
 		<img
 			{decoding}
 			class="img-sizer-svg"
@@ -321,32 +317,25 @@ class:intrinsic={layout === 'intrinsic'}
 			src: src,
 			layout: layout,
 			placeholder: placeholder,
-			onLoadingComplete: (e) => {
+			onLoadingComplete: e => {
 				dispatch('load', e);
 			},
-			errorHandler: (e) => {
+			errorHandler: e => {
 				dispatch('error', e);
-			}
+			},
 		}}
 		use:intersection={{
 			observerOptions: {
-				rootMargin: lazyBoundary
+				rootMargin: lazyBoundary,
 			},
-			onIntersection: (_) => {
+			onIntersection: _ => {
 				console.log(_);
 				isIntersected = true;
-			}
+			},
 		}}
 	/>
 	<noscript>
-		<img
-			{...noScriptImgAttributes}
-			{alt}
-			{loading}
-			{decoding}
-			class={`img ${klass}`}
-			data-kimg={layout}
-		/>
+		<img {...noScriptImgAttributes} {alt} {loading} {decoding} class={`img ${klass}`} data-kimg={layout} />
 	</noscript>
 </span>
 
