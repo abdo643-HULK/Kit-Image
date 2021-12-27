@@ -36,18 +36,18 @@ export function cloudinaryLoader({ root, src, width, quality }: DefaultImageLoad
 }
 
 export function defaultImageLoader(loaderProps: ImageLoaderProps) {
-	const load = loaders.get(configLoader);
+	const load = loaders.get(configLoader!);
 
 	if (load) {
 		return load({ root: configPath, ...loaderProps });
 	}
 
 	throw new Error(
-		`Unknown "loader" found in "next.config.js". Expected: ${VALID_LOADERS.join(', ')}. Received: ${configLoader}`
+		`Unknown "loader" found in "svelte.config.js". Expected: ${VALID_LOADERS.join(', ')}. Received: ${configLoader}`
 	);
 }
 
-export function defaultLoader({ root, src, width, quality }: DefaultImageLoaderProps): string {
+export function nodeLoader({ root, src, width, quality }: DefaultImageLoaderProps): string {
 	if (dev) {
 		const missingValues = [];
 
@@ -97,4 +97,8 @@ export function defaultLoader({ root, src, width, quality }: DefaultImageLoaderP
 
 export function customLoader({ src }: DefaultImageLoaderProps): string {
 	throw new Error(`${TAG} Image with src "${src}" is missing "loader" prop.` + `\n`);
+}
+
+export function netlifyLoader({ root, src, width, quality }: DefaultImageLoaderProps) {
+	return ''; //TODO
 }

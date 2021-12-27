@@ -11,6 +11,7 @@ import { isAnimated } from './is-animated';
 import { getContentType, getExtension } from './helper';
 import { contentDisposition } from './content-disposition';
 import { detectContentType, inflightRequests, fileExists, sendEtagResponse } from './helper';
+import { ANIMATABLE_TYPES, AVIF, CACHE_VERSION, JPEG, PNG, VECTOR_TYPES, WEBP } from './constants';
 
 import type { Socket } from 'net';
 import type { RequestHandler } from 'sirv';
@@ -18,7 +19,6 @@ import type { SharpOptions, Sharp } from 'sharp';
 import type { Middleware, Request } from 'polka';
 import type { ImageConfig, ImageExtension } from 'types';
 import type { ServerResponse, IncomingHttpHeaders } from 'http';
-import { ANIMATABLE_TYPES, AVIF, CACHE_VERSION, JPEG, PNG, VECTOR_TYPES, WEBP } from './constants';
 
 interface MockRequest extends Readable, Request {
 	headers: IncomingHttpHeaders;
@@ -71,7 +71,7 @@ export async function imageOptimizer(
 		formats = ['image/webp'],
 	} = imageConfig;
 
-	if (loader !== 'default') {
+	if (loader !== 'node') {
 		res.statusCode = 404;
 		res.end('Not found');
 		// await server.render404(req, res, parsedUrl);

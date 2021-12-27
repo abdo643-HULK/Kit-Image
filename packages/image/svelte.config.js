@@ -1,7 +1,8 @@
 //@ts-check
 import * as path from 'path';
 import preprocess from 'svelte-preprocess';
-import adapter from '@kit-image/adapter-node';
+// import adapter from '@kit-image/adapter-node';
+import adapter from '@sveltejs/adapter-vercel';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {

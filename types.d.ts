@@ -48,14 +48,13 @@ export type Img = {
 type ImageFormat = 'image/avif' | 'image/webp';
 
 export type ImageConfigComplete = {
-	deviceSizes: number[];
 	imageSizes: number[];
+	deviceSizes: number[];
+	domains: string[];
+	minimumCacheTTL: number;
+	formats: ImageFormat[];
 	loader: LoaderValue;
 	path: string;
-	domains?: string[];
-	disableStaticImages?: boolean;
-	minimumCacheTTL?: number;
-	formats?: ImageFormat[];
 };
 
 export type ImageConfig = Partial<ImageConfigComplete>;

@@ -11,7 +11,7 @@ export default function handleLoad(
 		layout: LayoutValue;
 		placeholder: PlaceholderValue;
 		onLoadingComplete?: OnLoadingComplete;
-		errorHandler?: (e: ErrorEvent) => void;
+		errorHandler?: (img: HTMLImageElement, e: ErrorEvent | Error) => void;
 	}
 ) {
 	const { src, layout, placeholder, onLoadingComplete = () => {}, errorHandler = () => {} } = options;
@@ -22,9 +22,10 @@ export default function handleLoad(
 				await ('decode' in img ? img.decode() : Promise.resolve());
 
 				if (placeholder === 'blur') {
-					img.style.filter = 'none';
-					img.style.backgroundSize = 'none';
-					img.style.backgroundImage = 'none';
+					img.classList.remove('img-blur');
+					// img.style.filter = 'none';
+					// img.style.backgroundSize = 'none';
+					// img.style.backgroundImage = 'none';
 				}
 
 				loadedImageURLs.add(src);
@@ -52,20 +53,24 @@ export default function handleLoad(
 					}
 				}
 			}
-		} catch (error) {}
+		} catch (error) {
+			errorHandler(img, error as Error);
+		}
 	}
+
+	const onErrorHandler = (e: ErrorEvent) => errorHandler(img, e);
 
 	if (img.complete) {
 		loadHandler();
 	} else {
 		img.addEventListener('load', loadHandler);
-		img.addEventListener('error', errorHandler);
+		img.addEventListener('error', onErrorHandler);
 	}
 
 	return {
 		destroy() {
 			img.removeEventListener('load', loadHandler);
-			img.addEventListener('error', errorHandler);
+			img.addEventListener('error', onErrorHandler);
 		},
 	};
 }

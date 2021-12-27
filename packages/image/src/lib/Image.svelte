@@ -320,7 +320,8 @@ class:intrinsic={layout === 'intrinsic'}
 			onLoadingComplete: e => {
 				dispatch('load', e);
 			},
-			errorHandler: e => {
+			errorHandler: (img, e) => {
+				img.src = errorPlaceholder;
 				dispatch('error', e);
 			},
 		}}

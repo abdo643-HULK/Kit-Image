@@ -2,22 +2,17 @@ import zlib from 'zlib';
 import glob from 'tiny-glob';
 import esbuild from 'esbuild';
 
-import { join, resolve } from 'path';
-import { pipeline } from 'stream';
-import { fileURLToPath, URL } from 'url';
 import { promisify } from 'util';
-import {
-	createReadStream,
-	createWriteStream,
-	existsSync,
-	readFileSync,
-	statSync,
-	writeFileSync,
-} from 'fs';
+import { pipeline } from 'stream';
+import { join, resolve } from 'path';
+import { fileURLToPath, URL } from 'url';
+import { createReadStream, createWriteStream, existsSync, readFileSync, statSync, writeFileSync } from 'fs';
 
-import type { Adapter } from '@sveltejs/kit';
+import { imageConfigDefault } from '../../config/defaults';
+
+import type { Adapter, Config } from '@sveltejs/kit';
 import type { BuildOptions } from 'esbuild';
-import type { ImageConfig } from '../../types';
+import type { ImageConfig, ImageConfigComplete } from 'types';
 
 interface Env {
 	path?: string;
@@ -25,29 +20,73 @@ interface Env {
 	port?: string;
 }
 
-interface Config {
+interface NodeAdapterConfig {
 	entryPoint?: string;
 	out?: string;
 	precompress?: boolean;
 	env?: Env;
 	esbuild?: (conf: BuildOptions) => Promise<BuildOptions>;
-	imageConfig?: ImageConfig;
+}
+
+interface NodeImageConfig extends Omit<Config, 'adapter'> {
+	image?: ImageConfig;
+	adapterConfig?: NodeAdapterConfig;
+}
+
+export default function withAdapter(config: NodeImageConfig) {
+	const kit = (config.kit = config.kit || {});
+	const viteConf = (typeof config.kit?.vite === 'function' ? config.kit.vite() : config.kit?.vite) || {};
+
+	viteConf.server = viteConf.server || {};
+
+	const imageConfig: ImageConfigComplete = {
+		loader: config.image?.loader || 'node',
+		path: config.image?.path || '/_kit/image',
+		domains: config.image?.domains || imageConfigDefault.domains,
+		formats: config.image?.formats || imageConfigDefault.formats,
+		imageSizes: config.image?.imageSizes ?? imageConfigDefault.imageSizes,
+		deviceSizes: config.image?.deviceSizes ?? imageConfigDefault.deviceSizes,
+		minimumCacheTTL: config.image?.minimumCacheTTL || imageConfigDefault.minimumCacheTTL,
+	};
+
+	kit.vite = () => ({
+		...viteConf,
+		server: {
+			...viteConf.server,
+			port: viteConf.server?.port,
+			proxy: {
+				'^/_kit/.*': {
+					target: 'http://localhost:3001',
+				},
+				...viteConf.server?.proxy,
+			},
+		},
+		define: {
+			__KIT_IMAGE_OPTS: imageConfig,
+			...(viteConf.define || {}),
+		},
+	});
+
+	kit.adapter = adapter({
+		...(config.adapterConfig || {}),
+		image: imageConfig,
+	});
+
+	console.debug(config);
+
+	return config;
 }
 
 const pipe = promisify(pipeline);
 
-export default function ({
+function adapter({
 	entryPoint = '.svelte-kit/node/index.js',
 	out = 'build',
 	precompress,
-	env: {
-		path: path_env = 'SOCKET_PATH',
-		host: host_env = 'HOST',
-		port: port_env = 'PORT',
-	} = {},
-	imageConfig,
+	env: { path: path_env = 'SOCKET_PATH', host: host_env = 'HOST', port: port_env = 'PORT' } = {},
 	esbuild: esbuild_config,
-}: Config = {}): Adapter {
+	image,
+}: NodeAdapterConfig & { image: ImageConfigComplete }): Adapter {
 	return {
 		name: '@sveltejs/adapter-node-kit-image',
 
@@ -73,19 +112,14 @@ export default function ({
 					path_env
 				)}] || false;\nexport const host = process.env[${JSON.stringify(
 					host_env
-				)}] || '0.0.0.0';\nexport const port = process.env[${JSON.stringify(
-					port_env
-				)}] || (!path && 3000);`
+				)}] || '0.0.0.0';\nexport const port = process.env[${JSON.stringify(port_env)}] || (!path && 3000);`
 			);
 
 			const defaultOptions: BuildOptions = {
 				entryPoints: ['.svelte-kit/node/middlewares.js'],
 				outfile: join(out, 'middlewares.js'),
 				bundle: true,
-				external: Object.keys(
-					JSON.parse(readFileSync('package.json', 'utf8'))
-						.dependencies || {}
-				),
+				external: Object.keys(JSON.parse(readFileSync('package.json', 'utf8')).dependencies || {}),
 				format: 'esm',
 				platform: 'node',
 				target: 'node14',
@@ -95,9 +129,7 @@ export default function ({
 				},
 			};
 
-			const build_options = esbuild_config
-				? await esbuild_config(defaultOptions)
-				: defaultOptions;
+			const build_options = esbuild_config ? await esbuild_config(defaultOptions) : defaultOptions;
 			await esbuild.build(build_options);
 
 			utils.log.minor('Building SvelteKit server');
@@ -110,7 +142,7 @@ export default function ({
 				platform: 'node',
 				target: 'node14',
 				define: {
-					__KIT_IMAGE_OPTS: JSON.stringify(imageConfig),
+					__KIT_IMAGE_OPTS: JSON.stringify(image),
 				},
 				// external exclude workaround, see https://github.com/evanw/esbuild/issues/514
 				plugins: [
@@ -118,29 +150,17 @@ export default function ({
 						name: 'fix-middlewares-exclude',
 						setup(build) {
 							// Match an import of "middlewares.js" and mark it as external
-							const internal_middlewares_path = resolve(
-								'.svelte-kit/node/middlewares.js'
-							);
-							const build_middlewares_path = resolve(
-								out,
-								'middlewares.js'
-							);
-							build.onResolve(
-								{ filter: /\/middlewares\.js$/ },
-								({ path, resolveDir }) => {
-									const resolved = resolve(resolveDir, path);
-									if (
-										resolved ===
-											internal_middlewares_path ||
-										resolved === build_middlewares_path
-									) {
-										return {
-											path: './middlewares.js',
-											external: true,
-										};
-									}
+							const internal_middlewares_path = resolve('.svelte-kit/node/middlewares.js');
+							const build_middlewares_path = resolve(out, 'middlewares.js');
+							build.onResolve({ filter: /\/middlewares\.js$/ }, ({ path, resolveDir }) => {
+								const resolved = resolve(resolveDir, path);
+								if (resolved === internal_middlewares_path || resolved === build_middlewares_path) {
+									return {
+										path: './middlewares.js',
+										external: true,
+									};
 								}
-							);
+							});
 						},
 					},
 				],
@@ -172,11 +192,7 @@ async function compress(directory: string) {
 		filesOnly: true,
 	});
 
-	await Promise.all(
-		files.map((file) =>
-			Promise.all([compress_file(file, 'gz'), compress_file(file, 'br')])
-		)
-	);
+	await Promise.all(files.map(file => Promise.all([compress_file(file, 'gz'), compress_file(file, 'br')])));
 }
 
 async function compress_file(file: string, format: 'gz' | 'br' = 'gz') {
@@ -184,12 +200,9 @@ async function compress_file(file: string, format: 'gz' | 'br' = 'gz') {
 		format === 'br'
 			? zlib.createBrotliCompress({
 					params: {
-						[zlib.constants.BROTLI_PARAM_MODE]:
-							zlib.constants.BROTLI_MODE_TEXT,
-						[zlib.constants.BROTLI_PARAM_QUALITY]:
-							zlib.constants.BROTLI_MAX_QUALITY,
-						[zlib.constants.BROTLI_PARAM_SIZE_HINT]:
-							statSync(file).size,
+						[zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
+						[zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
+						[zlib.constants.BROTLI_PARAM_SIZE_HINT]: statSync(file).size,
 					},
 			  })
 			: zlib.createGzip({ level: zlib.constants.Z_BEST_COMPRESSION });

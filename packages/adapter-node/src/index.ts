@@ -1,24 +1,25 @@
-declare var __KIT_IMAGE_OPTS: ImageConfig;
+declare const __KIT_IMAGE_OPTS: ImageConfigComplete;
 
 import polka from 'polka';
 import compression from 'compression';
 
 // @ts-ignore
+import { prerenderedMiddleware, assetsMiddleware, kitMiddleware } from '@sveltejs/adapter-node/files/middlewares';
+
+// @ts-ignore
 import { path, host, port } from './env.js';
-import { imageOptimizer } from './image-optimizer';
-import { imageConfigDefault } from '../../../config/defaults';
-import { assetsMiddleware, kitMiddleware, prerenderedMiddleware } from './middlewares.js';
+import { imageOptimizer } from './optimizer';
+// import { assetsMiddleware, kitMiddleware, prerenderedMiddleware } from './middlewares.js';
 
 import type { Middleware } from 'polka';
-import type { ImageConfig } from 'types';
+import type { ImageConfigComplete } from 'types';
 
 const server = polka();
 server.use(compression({ threshold: 0 }) as unknown as Middleware);
 
-const imgConfig = { ...imageConfigDefault, ...(__KIT_IMAGE_OPTS || {}) };
+const imgConfig = __KIT_IMAGE_OPTS;
 
-server.get('/_kit/image', async (req, res, next) => {
-	console.log(imgConfig);
+server.get('/_kit/image', async (req, res) => {
 	await imageOptimizer(req, res, imgConfig, assetsMiddleware);
 });
 

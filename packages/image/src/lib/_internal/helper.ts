@@ -60,7 +60,7 @@ export function getWidths(
 		// Find all the "vw" percent sizes used in the sizes prop
 		const viewportWidthRe = /(^|\s)(1?\d?\d)vw/g;
 		const percentSizes = [];
-		for (let match: string[]; (match = viewportWidthRe.exec(sizes)); match) {
+		for (let match: RegExpExecArray | null; (match = viewportWidthRe.exec(sizes)); match) {
 			percentSizes.push(parseInt(match[2]));
 		}
 
